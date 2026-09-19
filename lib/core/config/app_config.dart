@@ -30,6 +30,10 @@ class AppConfig {
   static const String copyright = '© 2026 Sawki Group. Tous droits réservés.';
   static const String poweredBy = 'Propulsé par Sawki Group';
 
+  /// URL publique officielle de la politique de confidentialité (Google Play Store)
+  static const String privacyPolicyUrl =
+      'https://raoulib.github.io/sawki-english/';
+
   /// Configuration Supabase Cloud Sync — injectée via --dart-define
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
