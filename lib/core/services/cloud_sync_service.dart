@@ -103,13 +103,25 @@ class CloudSyncService {
       targetGoal: row['target_goal']?.toString() ?? '',
       xp: (row['xp'] as num?)?.toInt() ?? 0,
       streakDays: (row['streak_days'] as num?)?.toInt() ?? 1,
-      completedLessons: (row['completed_lessons'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      evaluationScores: (row['evaluation_scores'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, (v as num).toInt())) ??
-          {},
+      completedLessons: () {
+        final raw = row['completed_lessons'];
+        if (raw is List) {
+          return raw.map((e) => e.toString()).toList();
+        } else if (raw is Map) {
+          return raw.keys.map((e) => e.toString()).toList();
+        }
+        return <String>[];
+      }(),
+      evaluationScores: () {
+        final raw = row['evaluation_scores'];
+        if (raw is Map) {
+          return raw.map((k, v) => MapEntry(
+                k.toString(),
+                (v is num) ? v.toInt() : (int.tryParse(v.toString()) ?? 0),
+              ));
+        }
+        return <String, int>{};
+      }(),
       masterExamScore: (row['master_exam_score'] as num?)?.toInt() ?? 0,
       isPremium: row['is_premium'] == true,
       email: row['email']?.toString(),

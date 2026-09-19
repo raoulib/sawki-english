@@ -34,14 +34,14 @@ class AppConfig {
   static const String privacyPolicyUrl =
       'https://raoulib.github.io/sawki-english/';
 
-  /// Configuration Supabase Cloud Sync — injectée via --dart-define
+  /// Configuration Supabase Cloud Sync
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://bkptrqfcnbnlodzyvrjs.supabase.co',
   );
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: '',
+    defaultValue: 'sb_publishable_WAdjJ20CCQTyxbLMp0-E3g_7T3mpQ8G',
   );
 
   /// Vérifie si Supabase est configuré
