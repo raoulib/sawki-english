@@ -220,6 +220,15 @@ class AppStateProvider extends ChangeNotifier {
     return success;
   }
 
+  /// Déconnecte le compte et efface les données locales de cet appareil
+  Future<void> logoutAndReset() async {
+    await StorageService.resetAllData();
+    _profile = StorageService.getUserProfile();
+    _mistakes = [];
+    _messages.clear();
+    notifyListeners();
+  }
+
   Future<void> setApiKey(String key) async {
     _apiKey = key.trim();
     await StorageService.saveApiKey(_apiKey);

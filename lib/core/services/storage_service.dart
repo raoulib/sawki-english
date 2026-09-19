@@ -149,4 +149,18 @@ class StorageService {
     final box = Hive.box(_settingsBoxName);
     await box.put('theme_mode', mode);
   }
+
+  // --- DÉCONNEXION & RÉINITIALISATION DE L'APPAREIL ---
+  /// Supprime toutes les données locales de l'appareil pour permettre
+  /// une déconnexion propre ou la cession du téléphone à une autre personne.
+  static Future<void> resetAllData() async {
+    final profileBox = Hive.box(_profileBoxName);
+    final mistakesBox = Hive.box(_mistakesBoxName);
+    final settingsBox = Hive.box(_settingsBoxName);
+
+    await profileBox.clear();
+    await mistakesBox.clear();
+    await settingsBox.put('onboarding_completed', false);
+    await settingsBox.delete('last_backup_date');
+  }
 }
