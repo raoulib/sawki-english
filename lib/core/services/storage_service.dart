@@ -150,6 +150,33 @@ class StorageService {
     await box.put('theme_mode', mode);
   }
 
+  // --- RAPPEL QUOTIDIEN (Notifications locales) ---
+  static bool isDailyReminderEnabled() {
+    final box = Hive.box(_settingsBoxName);
+    return (box.get('daily_reminder_enabled') as bool?) ?? false;
+  }
+
+  static Future<void> saveDailyReminderEnabled(bool enabled) async {
+    final box = Hive.box(_settingsBoxName);
+    await box.put('daily_reminder_enabled', enabled);
+  }
+
+  static int getDailyReminderHour() {
+    final box = Hive.box(_settingsBoxName);
+    return (box.get('daily_reminder_hour') as int?) ?? 19;
+  }
+
+  static int getDailyReminderMinute() {
+    final box = Hive.box(_settingsBoxName);
+    return (box.get('daily_reminder_minute') as int?) ?? 0;
+  }
+
+  static Future<void> saveDailyReminderTime(int hour, int minute) async {
+    final box = Hive.box(_settingsBoxName);
+    await box.put('daily_reminder_hour', hour);
+    await box.put('daily_reminder_minute', minute);
+  }
+
   // --- DÉCONNEXION & RÉINITIALISATION DE L'APPAREIL ---
   /// Supprime toutes les données locales de l'appareil pour permettre
   /// une déconnexion propre ou la cession du téléphone à une autre personne.

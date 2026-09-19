@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/storage_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/providers/app_state_provider.dart';
 import 'features/splash/splash_screen.dart';
 
@@ -10,6 +11,9 @@ void main() async {
 
   // Initialisation de la persistance locale ultra-rapide Hive
   await StorageService.init();
+
+  // Initialisation du service de rappels quotidiens locaux
+  await NotificationService.instance.initialize();
 
   runApp(const SawkiEnglishApp());
 }

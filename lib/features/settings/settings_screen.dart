@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/services/tts_service.dart';
+import '../../core/services/storage_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/config/app_config.dart';
 import '../premium/premium_screen.dart';
 import '../history/history_screen.dart';
@@ -18,6 +20,98 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool _isDailyReminderEnabled = false;
+  int _reminderHour = 19;
+  int _reminderMinute = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReminderPreferences();
+  }
+
+  void _loadReminderPreferences() {
+    setState(() {
+      _isDailyReminderEnabled = StorageService.isDailyReminderEnabled();
+      _reminderHour = StorageService.getDailyReminderHour();
+      _reminderMinute = StorageService.getDailyReminderMinute();
+    });
+  }
+
+  String _formatTime(int hour, int minute) {
+    return '${hour.toString().padLeft(2, '0')}h${minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _toggleDailyReminder(bool enabled) async {
+    if (enabled) {
+      final granted = await NotificationService.instance.requestPermission();
+      if (!mounted) return;
+      if (!granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez autoriser les notifications dans les paramètres de votre appareil.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      await StorageService.saveDailyReminderEnabled(true);
+      await NotificationService.instance.scheduleDailyReminder(_reminderHour, _reminderMinute);
+      setState(() {
+        _isDailyReminderEnabled = true;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rappel quotidien activé pour ${_formatTime(_reminderHour, _reminderMinute)} ⏰'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else {
+      await StorageService.saveDailyReminderEnabled(false);
+      await NotificationService.instance.cancelDailyReminder();
+      setState(() {
+        _isDailyReminderEnabled = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Rappels quotidiens désactivés.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _reminderHour, minute: _reminderMinute),
+      helpText: 'CHOISIR L\'HEURE DU RAPPEL QUOTIDIEN',
+      confirmText: 'CONFIRMER',
+      cancelText: 'ANNULER',
+    );
+    if (picked != null) {
+      setState(() {
+        _reminderHour = picked.hour;
+        _reminderMinute = picked.minute;
+      });
+      await StorageService.saveDailyReminderTime(picked.hour, picked.minute);
+      if (_isDailyReminderEnabled) {
+        await NotificationService.instance.scheduleDailyReminder(picked.hour, picked.minute);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Heure du rappel mise à jour : ${_formatTime(picked.hour, picked.minute)} ⏰'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   void _showEmailVerificationDialog(BuildContext context, AppStateProvider provider) {
     showEmailVerificationDialog(context, provider);
   }
@@ -82,7 +176,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 10),
                 Text(
-                  '4. Vos Droits & Contact',
+                  '4. Notifications Locales & Rappels Quotidiens',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '• Avec votre consentement préalable explicite, des rappels quotidiens sont programmés localement sur votre appareil pour encourager votre régularité.\n• Aucune donnée personnelle n\'est collectée ni transmise à des tiers pour ces notifications. Vous pouvez désactiver ce rappel à tout moment dans l\'application ou dans les réglages système.',
+                  style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  '5. Vos Droits & Contact',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
                 SizedBox(height: 4),
@@ -1020,19 +1124,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Switch(
-                      value: true,
+                      value: _isDailyReminderEnabled,
                       activeThumbColor: AppColors.primary,
-                      onChanged: (val) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(val ? 'Rappel quotidien activé à 19h00 ⏰' : 'Rappels désactivés'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
+                      onChanged: _toggleDailyReminder,
                     ),
                   ],
                 ),
+                if (_isDailyReminderEnabled) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.isDark(context) ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.cardBorder(context)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.alarm, size: 18, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Heure de rappel : ${_formatTime(_reminderHour, _reminderMinute)}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: _pickReminderTime,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                          ),
+                          child: const Text('Modifier', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        await NotificationService.instance.showTestNotification();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Notification test envoyée ! Regardez en haut de votre écran 🔔'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.send_rounded, size: 14),
+                      label: const Text('Tester la notification', style: TextStyle(fontSize: 11)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        minimumSize: Size.zero,
+                        foregroundColor: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
                 const Divider(height: 20),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
