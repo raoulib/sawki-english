@@ -1,0 +1,8 @@
+# Fichier de configuration de signature pour la release
+# ⚠️ NE PAS COMMITTER CE FICHIER dans Git !
+# Générez votre keystore avec :
+# keytool -genkey -v -keystore sawki-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias sawki
+storePassword=VOTRE_MOT_DE_PASSE
+keyPassword=VOTRE_MOT_DE_PASSE
+keyAlias=sawki
+storeFile=../sawki-release.jks
