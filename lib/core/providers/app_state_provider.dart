@@ -195,6 +195,8 @@ class AppStateProvider extends ChangeNotifier {
     if (restored != null) {
       _profile = restored;
       _mistakes = StorageService.getMistakes();
+      await StorageService.saveUserProfile(_profile);
+      await StorageService.setOnboardingCompleted(true);
       notifyListeners();
       return true;
     }
@@ -207,6 +209,8 @@ class AppStateProvider extends ChangeNotifier {
     if (restored != null) {
       _profile = restored;
       _mistakes = StorageService.getMistakes();
+      await StorageService.saveUserProfile(_profile);
+      await StorageService.setOnboardingCompleted(true);
       notifyListeners();
       return true;
     }

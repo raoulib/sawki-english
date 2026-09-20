@@ -77,14 +77,22 @@ class CloudSyncService {
         final List<dynamic> data = jsonDecode(response.body);
         if (data.isNotEmpty) {
           final row = Map<String, dynamic>.from(data.first);
-          final profile = fromSupabaseRow(row);
+          final cloudProfile = fromSupabaseRow(row);
+          final localProfile = StorageService.getUserProfile();
+
+          // Fusion intelligente pour protéger l'apprenant contre toute perte
+          final merged = mergeProfiles(localProfile, cloudProfile);
 
           // Sauvegarde locale Hive
-          await StorageService.saveUserProfile(profile);
+          await StorageService.saveUserProfile(merged);
           await StorageService.setOnboardingCompleted(true);
           await StorageService.saveLastBackupDate(DateTime.now());
-          debugPrint("✅ Profile successfully restored from Supabase for: ${profile.name}");
-          return profile;
+          
+          // Mettre à jour le cloud avec la version fusionnée la plus riche
+          syncProfileToSupabase(merged);
+          
+          debugPrint("✅ Profile successfully restored and merged for: ${merged.name}");
+          return merged;
         }
       } else {
         debugPrint("❌ Supabase fetch failed: ${response.statusCode} - ${response.body}");
@@ -93,6 +101,41 @@ class CloudSyncService {
       debugPrint("❌ Supabase fetch error: $e");
     }
     return null;
+  }
+
+  /// Fusionne intelligemment un profil local et un profil cloud pour ne JAMAIS perdre de progrès.
+  static UserProfile mergeProfiles(UserProfile local, UserProfile cloud) {
+    final allLessons = <String>{...local.completedLessons, ...cloud.completedLessons}.toList();
+    final allScores = Map<String, int>.from(local.evaluationScores);
+    cloud.evaluationScores.forEach((lvl, score) {
+      final current = allScores[lvl] ?? 0;
+      if (score > current) {
+        allScores[lvl] = score;
+      }
+    });
+
+    const levels = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1'];
+    final localLvlIdx = levels.indexOf(local.currentLevel.toUpperCase());
+    final cloudLvlIdx = levels.indexOf(cloud.currentLevel.toUpperCase());
+    final highestLevel = (cloudLvlIdx > localLvlIdx && cloudLvlIdx >= 0)
+        ? cloud.currentLevel
+        : (localLvlIdx >= 0 ? local.currentLevel : cloud.currentLevel);
+
+    final localExam = local.masterExamScore ?? 0;
+    final cloudExam = cloud.masterExamScore ?? 0;
+
+    return cloud.copyWith(
+      name: cloud.name.isNotEmpty ? cloud.name : local.name,
+      currentLevel: highestLevel,
+      targetGoal: cloud.targetGoal.isNotEmpty ? cloud.targetGoal : local.targetGoal,
+      xp: cloud.xp > local.xp ? cloud.xp : local.xp,
+      streakDays: cloud.streakDays > local.streakDays ? cloud.streakDays : local.streakDays,
+      completedLessons: allLessons,
+      evaluationScores: allScores,
+      masterExamScore: cloudExam > localExam ? cloud.masterExamScore : local.masterExamScore,
+      isPremium: cloud.isPremium || local.isPremium,
+      email: cloud.email ?? local.email,
+    );
   }
 
   /// Convertit une ligne de base de données Supabase en UserProfile

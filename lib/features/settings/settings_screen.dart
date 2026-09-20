@@ -229,45 +229,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Cette action va effacer vos données locales et réinitialiser l\'application sur ce téléphone.',
-              style: TextStyle(fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFFCA5A5)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.red, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Vos progrès restent en sécurité sur le Cloud Sawki. Vous pourrez les récupérer sur un autre téléphone avec votre email ou votre Clé Sawki.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+        content: Builder(
+          builder: (context) {
+            final hasEmail = provider.profile.email != null && provider.profile.email!.contains('@');
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cette action va effacer vos données locales et réinitialiser l\'application sur ce téléphone.',
+                  style: TextStyle(fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: hasEmail ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: hasEmail ? const Color(0xFFFCA5A5) : const Color(0xFFFDE68A),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ],
+                  child: Row(
+                    children: [
+                      Icon(
+                        hasEmail ? Icons.cloud_done : Icons.warning_amber_rounded,
+                        color: hasEmail ? Colors.green.shade700 : Colors.amber.shade900,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          hasEmail
+                              ? 'Vos progrès (${provider.profile.xp} XP, niveau ${provider.profile.currentLevel}) seront sauvegardés sur le Cloud (${provider.profile.email}) avant la déconnexion.'
+                              : '⚠️ ATTENTION : Aucun email n\'est associé à ce compte ! Vos leçons sont stockées uniquement sur ce téléphone. Associez votre email avant de vous déconnecter pour ne rien perdre.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: hasEmail ? const Color(0xFF166534) : const Color(0xFF92400E),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Annuler'),
           ),
+          if (provider.profile.email == null || !provider.profile.email!.contains('@'))
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                _showEmailVerificationDialog(context, provider);
+              },
+              icon: const Icon(Icons.email_outlined, size: 16),
+              label: const Text('Associer mon email d\'abord'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogCtx);
+              // Si un email est présent, forcer la sauvegarde Cloud avant d'effacer le local
+              if (provider.profile.email != null && provider.profile.email!.contains('@')) {
+                await provider.syncToCloud();
+              }
               await provider.logoutAndReset();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
