@@ -419,7 +419,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                 key: _certificateKey,
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(22),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -510,20 +510,20 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Score et Sceau doré
+                      // Score et Sceau doré (aucun texte coupé, mise à l'échelle automatique)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFEF3C7),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: const Color(0xFFD4AF37)),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.verified, color: Color(0xFFD4AF37), size: 28),
                             const SizedBox(width: 10),
-                            Flexible(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -535,10 +535,19 @@ class _CertificateScreenState extends State<CertificateScreen> {
                                       color: Color(0xFF92400E),
                                     ),
                                   ),
-                                  const Text(
-                                    'Proficiency Level: C1 - Bilingual Mastery (Passing Grade ≥ 80%)',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFB45309)),
-                                    overflow: TextOverflow.ellipsis,
+                                  const SizedBox(height: 2),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: const Text(
+                                      'Proficiency Level: C1 - Bilingual Mastery (Score ≥ 80%)',
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -548,34 +557,41 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       ),
                       const SizedBox(height: 22),
 
-                      // Date et Signature
+                      // Date et Signature (Sarah reste strictement sur une seule ligne)
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Date Issued:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _formatDateEnglish(widget.profile.masterExamDate),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Date Issued:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatDateEnglish(widget.profile.masterExamDate),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                          const Spacer(),
+                          Flexible(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 const Text('Certified & Validated by:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                                 const SizedBox(height: 2),
-                                Text(
-                                  'Sarah 🇺🇸 (Lead American Coach)',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    'Sarah 🇺🇸 (Lead American Coach)',
+                                    textAlign: TextAlign.end,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
