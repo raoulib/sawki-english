@@ -1,8 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import '../../core/config/app_config.dart';
 import '../../core/providers/app_state_provider.dart';
 
 class PremiumScreen extends StatefulWidget {
@@ -14,18 +11,6 @@ class PremiumScreen extends StatefulWidget {
 
 class _PremiumScreenState extends State<PremiumScreen> {
   int _selectedPlanIndex = 0; // 0 = Annuel (recommandé), 1 = Mensuel
-  final TextEditingController _promoController = TextEditingController();
-  String? _appliedPromoCode;
-  int _discountPercent = 0; // Pourcentage de réduction (ex: 20, 30, 50%)
-  bool _isValidatingPromo = false;
-  String? _promoErrorMessage;
-  String? _promoSuccessMessage;
-
-  @override
-  void dispose() {
-    _promoController.dispose();
-    super.dispose();
-  }
 
   final List<Map<String, dynamic>> _plans = [
     {
@@ -47,135 +32,6 @@ class _PremiumScreenState extends State<PremiumScreen> {
       'billingPeriod': 'Facturé 4,99 € chaque mois',
     },
   ];
-
-  String _getPlanPrice(Map<String, dynamic> plan) {
-    if (_discountPercent > 0) {
-      final double base = plan['id'] == 'sawki_premium_annual' ? 29.99 : 4.99;
-      final double discounted = base * (1 - (_discountPercent / 100));
-      final String formatted = discounted.toStringAsFixed(2).replaceAll('.', ',');
-      final String unit = plan['id'] == 'sawki_premium_annual' ? 'an' : 'mois';
-      return '$formatted € / $unit';
-    }
-    return plan['price'];
-  }
-
-  String _getPlanSubprice(Map<String, dynamic> plan) {
-    if (_discountPercent > 0) {
-      if (plan['id'] == 'sawki_premium_annual') {
-        final double monthlyEquivalent = (29.99 * (1 - (_discountPercent / 100))) / 12;
-        final String formatted = monthlyEquivalent.toStringAsFixed(2).replaceAll('.', ',');
-        return 'Soit seulement $formatted € / mois (-$_discountPercent%)';
-      } else {
-        return 'Sans engagement (-$_discountPercent%)';
-      }
-    }
-    return plan['subprice'];
-  }
-
-  Future<void> _applyPromoCode(AppStateProvider provider) async {
-    final code = _promoController.text.trim().toUpperCase();
-    FocusScope.of(context).unfocus();
-
-    if (code.isEmpty) {
-      setState(() {
-        _promoErrorMessage = 'Veuillez saisir un code promo.';
-        _promoSuccessMessage = null;
-      });
-      return;
-    }
-
-    setState(() {
-      _isValidatingPromo = true;
-      _promoErrorMessage = null;
-      _promoSuccessMessage = null;
-    });
-
-    try {
-      int? foundDiscount;
-
-      // 1. Vérification dynamique en temps réel sur Supabase Cloud
-      try {
-        final encodedCode = Uri.encodeComponent(code);
-        final url = Uri.parse(
-          '${AppConfig.supabaseUrl}/rest/v1/promo_codes?code=eq.$encodedCode&is_active=eq.true&select=*',
-        );
-        final response = await http.get(url, headers: {
-          'apikey': AppConfig.supabaseAnonKey,
-          'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
-        }).timeout(const Duration(seconds: 4));
-
-        if (response.statusCode == 200) {
-          final List<dynamic> data = jsonDecode(response.body);
-          if (data.isNotEmpty) {
-            final row = data.first;
-            final percent = row['discount_percent'];
-            if (percent is int) {
-              foundDiscount = percent;
-            } else if (percent is num) {
-              foundDiscount = percent.toInt();
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Vérification Supabase promo codes : $e');
-      }
-
-      // 2. Codes de réduction intégrés par défaut (fonctionne hors ligne ou avant config Supabase)
-      if (foundDiscount == null) {
-        final defaultDiscountCodes = {
-          'SAWKI50': 50,
-          'PROMO50': 50,
-          'SAVE50': 50,
-          'SAWKI30': 30,
-          'PROMO30': 30,
-          'SAVE30': 30,
-          'SAWKI20': 20,
-          'PROMO20': 20,
-          'SAVE20': 20,
-          'SAWKI10': 10,
-          'WELCOME10': 10,
-        };
-        if (defaultDiscountCodes.containsKey(code)) {
-          foundDiscount = defaultDiscountCodes[code];
-        }
-      }
-
-      if (!mounted) return;
-
-      if (foundDiscount != null && foundDiscount > 0 && foundDiscount <= 90) {
-        setState(() {
-          _appliedPromoCode = code;
-          _discountPercent = foundDiscount!;
-          _promoErrorMessage = null;
-          _promoSuccessMessage = 'Réduction de $_discountPercent% appliquée sur tous les tarifs ! 🎉';
-          _isValidatingPromo = false;
-        });
-      } else {
-        setState(() {
-          _promoErrorMessage = 'Code promotionnel invalide ou expiré.';
-          _promoSuccessMessage = null;
-          _isValidatingPromo = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _promoErrorMessage = 'Erreur lors de la validation du code.';
-        _promoSuccessMessage = null;
-        _isValidatingPromo = false;
-      });
-    }
-  }
-
-  void _removePromoCode() {
-    setState(() {
-      _appliedPromoCode = null;
-      _discountPercent = 0;
-      _promoErrorMessage = null;
-      _promoSuccessMessage = null;
-      _promoController.clear();
-    });
-  }
 
   final List<Map<String, dynamic>> _features = [
     {
@@ -201,11 +57,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
   ];
 
   /// Informe l'utilisateur que l'abonnement Premium sera bientôt disponible
-  /// via Google Play Billing officiel.
+  /// via Google Play Billing officiel (avec support des codes promotionnels Google Play).
   void _openPremiumSubscription(AppStateProvider provider) {
-    final selectedPlan = _plans[_selectedPlanIndex];
-    final finalPrice = _getPlanPrice(selectedPlan);
-
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -223,39 +76,21 @@ class _PremiumScreenState extends State<PremiumScreen> {
               ),
             ],
           ),
-          content: Column(
+          content: const Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'L\'abonnement Sawki English Premium sera disponible très prochainement via Google Play Billing.',
                 style: TextStyle(fontSize: 14, height: 1.5),
               ),
-              if (_discountPercent > 0) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF10B981)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Code promo appliqué : $finalPrice (-$_discountPercent%)',
-                          style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              const Text(
+              SizedBox(height: 12),
+              Text(
+                'Les codes promotionnels officiels créés dans la Google Play Console seront directement utilisables lors du paiement Google Play.',
+                style: TextStyle(fontSize: 13, color: Color(0xFFD4AF37), fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 12),
+              Text(
                 'En attendant, vous pouvez profiter de toutes les leçons de A0 à C1 avec 3 sessions IA gratuites par jour.',
                 style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
@@ -461,160 +296,26 @@ class _PremiumScreenState extends State<PremiumScreen> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                _getPlanSubprice(plan),
+                                plan['subprice'],
                                 style: const TextStyle(color: Colors.white60, fontSize: 11),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _discountPercent > 0
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    plan['price'],
-                                    style: const TextStyle(
-                                      color: Colors.white38,
-                                      decoration: TextDecoration.lineThrough,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  Text(
-                                    _getPlanPrice(plan),
-                                    style: const TextStyle(
-                                      color: Color(0xFF4ADE80),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Text(
-                                plan['price'],
-                                style: TextStyle(
-                                  color: isSelected ? const Color(0xFFD4AF37) : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
+                        Text(
+                          plan['price'],
+                          style: TextStyle(
+                            color: isSelected ? const Color(0xFFD4AF37) : Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 );
               }),
-              const SizedBox(height: 16),
-
-              // Section Code Promo
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _appliedPromoCode != null
-                        ? const Color(0xFF10B981).withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.12),
-                    width: _appliedPromoCode != null ? 1.5 : 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.discount_outlined, color: Color(0xFFD4AF37), size: 18),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Vous avez un code promo ?',
-                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        if (_appliedPromoCode != null)
-                          GestureDetector(
-                            onTap: _removePromoCode,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text('Retirer', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _promoController,
-                            textCapitalization: TextCapitalization.characters,
-                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1),
-                            decoration: InputDecoration(
-                              hintText: 'Code promo (ex: SAWKI50)',
-                              hintStyle: const TextStyle(color: Colors.white38, fontSize: 12, letterSpacing: 0),
-                              filled: true,
-                              fillColor: Colors.black.withValues(alpha: 0.3),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _isValidatingPromo ? null : () => _applyPromoCode(provider),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD4AF37),
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                          child: _isValidatingPromo
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                                )
-                              : const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
-                      ],
-                    ),
-                    if (_promoErrorMessage != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 14),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(_promoErrorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 11)),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (_promoSuccessMessage != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 14),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _promoSuccessMessage!,
-                              style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
               const SizedBox(height: 16),
 
               // Bouton d'action Premium
