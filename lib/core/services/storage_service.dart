@@ -177,7 +177,7 @@ class StorageService {
     await box.put('daily_reminder_minute', minute);
   }
 
-  // --- CERTIFICATION NOM COMPLET OFFICIEL ---
+  // --- CERTIFICATION NOM COMPLET OFFICIEL & SCELLEMENT ---
   static String? getCertificateFullName() {
     final box = Hive.box(_settingsBoxName);
     return box.get('certificate_full_name') as String?;
@@ -186,6 +186,26 @@ class StorageService {
   static Future<void> saveCertificateFullName(String fullName) async {
     final box = Hive.box(_settingsBoxName);
     await box.put('certificate_full_name', fullName.trim());
+  }
+
+  static String? getCertificateCredentialId() {
+    final box = Hive.box(_settingsBoxName);
+    return box.get('certificate_credential_id') as String?;
+  }
+
+  static bool isCertificateSealed() {
+    final box = Hive.box(_settingsBoxName);
+    return box.get('certificate_is_sealed') == true;
+  }
+
+  static Future<void> sealCertificate({
+    required String fullName,
+    required String credentialId,
+  }) async {
+    final box = Hive.box(_settingsBoxName);
+    await box.put('certificate_full_name', fullName.trim());
+    await box.put('certificate_credential_id', credentialId.trim());
+    await box.put('certificate_is_sealed', true);
   }
 
   // --- DÉCONNEXION & RÉINITIALISATION DE L'APPAREIL ---

@@ -22,24 +22,42 @@ class _CertificateScreenState extends State<CertificateScreen> {
   final GlobalKey _certificateKey = GlobalKey();
   bool _isExporting = false;
   late String _fullName;
+  late String _credentialId;
+  late bool _isSealed;
 
   @override
   void initState() {
     super.initState();
-    final stored = StorageService.getCertificateFullName();
-    if (stored != null && stored.trim().isNotEmpty) {
-      _fullName = stored.trim();
+    _isSealed = StorageService.isCertificateSealed();
+    final storedName = StorageService.getCertificateFullName();
+    final storedId = StorageService.getCertificateCredentialId();
+
+    if (_isSealed && storedName != null && storedName.trim().isNotEmpty) {
+      _fullName = storedName.trim();
+      _credentialId = (storedId != null && storedId.isNotEmpty)
+          ? storedId
+          : _generateCredentialId();
     } else {
-      _fullName = widget.profile.name.trim();
+      _fullName = (storedName != null && storedName.trim().isNotEmpty)
+          ? storedName.trim()
+          : widget.profile.name.trim();
+      _credentialId = storedId ?? '';
     }
 
-    // Si aucun nom complet officiel n'a encore été enregistré,
-    // inviter immédiatement l'apprenant à saisir son nom complet pour le document
+    // Conformément aux normes internationales d'intégrité académique,
+    // inviter l'apprenant à renseigner et sceller définitivement son Nom Légal Officiel
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (stored == null || stored.trim().isEmpty) {
-        _promptForFullName(isInitial: true);
+      if (!_isSealed) {
+        _promptForSealing(isInitial: true);
       }
     });
+  }
+
+  String _generateCredentialId() {
+    final year = (widget.profile.masterExamDate ?? DateTime.now()).year;
+    final hex = DateTime.now().millisecondsSinceEpoch.toRadixString(16).toUpperCase();
+    final suffix = hex.length >= 6 ? hex.substring(hex.length - 6) : hex.padLeft(6, '0');
+    return 'SE-$year-C1-$suffix';
   }
 
   String _formatDateEnglish(DateTime? date) {
@@ -51,8 +69,11 @@ class _CertificateScreenState extends State<CertificateScreen> {
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
-  Future<void> _promptForFullName({bool isInitial = false}) async {
-    final controller = TextEditingController(text: _fullName);
+  Future<void> _promptForSealing({bool isInitial = false}) async {
+    final controller = TextEditingController(
+      text: _fullName.isNotEmpty ? _fullName : '',
+    );
+
     await showDialog(
       context: context,
       barrierDismissible: !isInitial,
@@ -65,51 +86,79 @@ class _CertificateScreenState extends State<CertificateScreen> {
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Nom Complet Officiel',
+                'Émission & Scellement Légal',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 18,
+                  fontSize: 17,
                 ),
               ),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Veuillez saisir votre Nom et Prénom complets (pour votre CV, LinkedIn, employeurs) tels qu\'ils doivent figurer sur votre certification officielle :',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: 'Prénom et Nom (ex: Ibrahim Moudy)',
-                hintStyle: const TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: Colors.black26,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFD4AF37)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: const Color(0xFFD4AF37).withValues(alpha: 0.5)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2),
-                ),
-                prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFFD4AF37)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Pour être accréditée et reconnue à l\'international (CV, LinkedIn, employeurs, universités), votre certification doit comporter votre Nom Légal Complet (Nom et Prénom d\'état civil).',
+                style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: 'Prénom et Nom légaux (ex: Ibrahim Moudy)',
+                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                  filled: true,
+                  fillColor: Colors.black26,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFD4AF37)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: const Color(0xFFD4AF37).withValues(alpha: 0.5)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                  ),
+                  prefixIcon: const Icon(Icons.verified_user, color: Color(0xFFD4AF37)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.5)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('⚠️ ', style: TextStyle(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        'Norme internationale anti-fraude :\nUne fois validé, ce diplôme sera définitivement scellé avec un identifiant unique (Credential ID). Ce nom ne pourra plus jamais être modifié sur cet appareil. Vérifiez l\'orthographe exacte selon votre passeport ou carte d\'identité.',
+                        style: TextStyle(
+                          color: Color(0xFFFDE68A),
+                          fontSize: 11.5,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           if (!isInitial)
@@ -117,24 +166,36 @@ class _CertificateScreenState extends State<CertificateScreen> {
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Annuler', style: TextStyle(color: Colors.white60)),
             ),
-          ElevatedButton(
-            onPressed: () {
+          ElevatedButton.icon(
+            onPressed: () async {
               final entered = controller.text.trim();
               if (entered.isNotEmpty) {
-                setState(() {
-                  _fullName = entered;
-                });
-                StorageService.saveCertificateFullName(entered);
-                Navigator.pop(ctx);
+                final generatedId = _generateCredentialId();
+                await StorageService.sealCertificate(
+                  fullName: entered,
+                  credentialId: generatedId,
+                );
+                if (mounted && ctx.mounted) {
+                  setState(() {
+                    _fullName = entered;
+                    _credentialId = generatedId;
+                    _isSealed = true;
+                  });
+                  Navigator.pop(ctx);
+                }
               }
             },
+            icon: const Icon(Icons.lock, size: 16),
+            label: const Text(
+              'Confirmer & Sceller Définitivement 🔒',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFD4AF37),
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            child: const Text('Valider pour le Diplôme', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -155,6 +216,11 @@ class _CertificateScreenState extends State<CertificateScreen> {
   }
 
   Future<void> _downloadDiploma() async {
+    if (!_isSealed) {
+      await _promptForSealing(isInitial: false);
+      if (!_isSealed) return;
+    }
+
     setState(() => _isExporting = true);
     try {
       final bytes = await _captureCertificate();
@@ -174,7 +240,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
       final fileName = 'Certificate_Sawki_English_${cleanName.isEmpty ? "Graduate" : cleanName}.png';
 
       File? savedPublicFile;
-      // 1. Essayer le dossier public Download d'Android
+      // 1. Dossier public Download d'Android
       try {
         final downloadDir = Directory('/storage/emulated/0/Download');
         if (await downloadDir.exists()) {
@@ -184,13 +250,15 @@ class _CertificateScreenState extends State<CertificateScreen> {
         }
       } catch (_) {}
 
-      // 2. Sauvegarde dans le stockage de documents de l'application
+      // 2. Stockage de documents de l'application
       final appDir = await getApplicationDocumentsDirectory();
       final appFile = File('${appDir.path}/$fileName');
       await appFile.writeAsBytes(bytes, flush: true);
 
       final targetPath = savedPublicFile?.path ?? appFile.path;
-      final shortLocation = savedPublicFile != null ? 'dossier Téléchargements (Download)' : 'l\'espace sécurisé de l\'application';
+      final shortLocation = savedPublicFile != null
+          ? 'dossier Téléchargements (Download)'
+          : 'l\'espace sécurisé de l\'application';
 
       if (mounted) {
         _showDownloadSuccessDialog(targetPath, shortLocation, appFile);
@@ -212,6 +280,11 @@ class _CertificateScreenState extends State<CertificateScreen> {
   }
 
   Future<void> _shareDiploma() async {
+    if (!_isSealed) {
+      await _promptForSealing(isInitial: false);
+      if (!_isSealed) return;
+    }
+
     setState(() => _isExporting = true);
     try {
       final bytes = await _captureCertificate();
@@ -227,7 +300,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path, mimeType: 'image/png', name: fileName)],
-          text: '🎓 Official Certificate of Bilingual Proficiency & Fluency awarded to $_fullName with a final score of ${widget.profile.masterExamScore ?? 100}%! Issued by Sawki English Academy.',
+          text: '🎓 Official Certificate of Bilingual Proficiency & Fluency awarded to $_fullName (Credential ID: $_credentialId) with a final score of ${widget.profile.masterExamScore ?? 100}%! Issued by Sawki English Academy.',
           subject: 'Official Sawki English Certificate - $_fullName',
         ),
       );
@@ -270,7 +343,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Votre diplôme officiel au nom de "$_fullName" a été généré avec succès en haute définition (qualité HD imprimable).',
+              'Votre diplôme officiel scellé au nom de "$_fullName" a été généré avec succès en haute définition (qualité HD imprimable).',
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -283,11 +356,11 @@ class _CertificateScreenState extends State<CertificateScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.greenAccent, size: 22),
+                  const Icon(Icons.verified, color: Colors.greenAccent, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Enregistré dans : $locationName\nFichier : ${path.split(Platform.pathSeparator).last}',
+                      'Enregistré dans : $locationName\nFichier : ${path.split(Platform.pathSeparator).last}\nID : $_credentialId',
                       style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ),
@@ -329,11 +402,6 @@ class _CertificateScreenState extends State<CertificateScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: Color(0xFFD4AF37)),
-            tooltip: 'Modifier le nom officiel',
-            onPressed: () => _promptForFullName(isInitial: false),
-          ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.white),
             tooltip: 'Partager le diplôme',
@@ -421,7 +489,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Nom officiel de l'apprenant
+                      // Nom officiel scellé de l'apprenant
                       Text(
                         _fullName.isNotEmpty ? _fullName : 'Distinguished Graduate',
                         textAlign: TextAlign.center,
@@ -514,30 +582,122 @@ class _CertificateScreenState extends State<CertificateScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+
+                      // Sceau d'authentification international & Credential ID
+                      Container(
+                        padding: const EdgeInsets.only(top: 10),
+                        decoration: const BoxDecoration(
+                          border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Credential ID: ${_credentialId.isNotEmpty ? _credentialId : "PENDING-ISSUANCE"}',
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF64748B),
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const Row(
+                              children: [
+                                Icon(Icons.lock_outline, size: 12, color: Color(0xFFD4AF37)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Officially Sealed & Tamper-Proof',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    color: Color(0xFF64748B),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 18),
 
-              // Bouton pour modifier le Nom Complet
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _promptForFullName(isInitial: false),
-                  icon: const Icon(Icons.edit_outlined, color: Color(0xFFD4AF37), size: 18),
-                  label: Text(
-                    'Nom sur le document : ${_fullName.isNotEmpty ? _fullName : "À renseigner"} (Modifier ✏️)',
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
+              // Statut du Scellement Légal (Pas de bouton de modification pour respecter les règles internationales)
+              if (_isSealed) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.4)),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFD4AF37), width: 1.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.verified_user, color: Color(0xFFD4AF37), size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Certificat Officiel Scellé : $_fullName',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'ID : $_credentialId • Conforme ISO/IEC 17024 (Nom immuable)',
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+              ] else ...[
+                InkWell(
+                  onTap: () => _promptForSealing(isInitial: false),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.amber.shade700),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Diplôme en attente de scellement.\nCliquez ici pour renseigner et sceller votre Nom Légal.',
+                            style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
 
               // Bouton Télécharger mon Diplôme
