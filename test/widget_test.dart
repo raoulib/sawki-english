@@ -173,6 +173,36 @@ void main() {
       expect(profileCertified.isCertified, true);
     });
 
+    test('Dynamic and randomized exam generation', () {
+      final randomMaster = CurriculumData.getMasterExamQuestions(randomize: true);
+      expect(randomMaster.length, 30); // 5 questions per level * 6 levels
+
+      final levelA1 = CurriculumData.getLevelById('A1')!;
+      final evalQuestions = CurriculumData.getEvaluationQuestionsForLevel(levelA1, count: 10, randomize: true);
+      expect(evalQuestions.length, 10);
+    });
+
+    test('Grand Examen 3-failure lock and weakest level revalidation model logic', () {
+      // 2 failures: not locked
+      final p2 = UserProfile(name: 'Ali', masterExamFailedAttempts: 2, masterExamLockedLevel: 'A2');
+      expect(p2.isMasterExamLocked, false);
+
+      // 3 failures: locked to A2
+      final p3 = UserProfile(name: 'Ali', masterExamFailedAttempts: 3, masterExamLockedLevel: 'A2');
+      expect(p3.isMasterExamLocked, true);
+      expect(p3.masterExamLockedLevel, 'A2');
+
+      // Serialization in toMap & fromMap
+      final map = p3.toMap();
+      expect(map['masterExamFailedAttempts'], 3);
+      expect(map['masterExamLockedLevel'], 'A2');
+
+      final deserialized = UserProfile.fromMap(map);
+      expect(deserialized.isMasterExamLocked, true);
+      expect(deserialized.masterExamFailedAttempts, 3);
+      expect(deserialized.masterExamLockedLevel, 'A2');
+    });
+
     test('Monetization & Energy rules conform to user requirements', () {
       expect(MonetizationConfig.dailyFreeEnergyBase, 3);
       expect(MonetizationConfig.rewardXpPerAd, 20);

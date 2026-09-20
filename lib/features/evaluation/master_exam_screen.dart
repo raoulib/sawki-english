@@ -7,6 +7,7 @@ import '../../core/services/tts_service.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/data/curriculum_data.dart';
 import 'certificate_screen.dart';
+import 'evaluation_screen.dart';
 
 class MasterExamScreen extends StatefulWidget {
   const MasterExamScreen({super.key});
@@ -16,7 +17,7 @@ class MasterExamScreen extends StatefulWidget {
 }
 
 class _MasterExamScreenState extends State<MasterExamScreen> {
-  final List<QuizQuestion> _questions = CurriculumData.getMasterExamQuestions();
+  late List<QuizQuestion> _questions;
   int _currentIndex = 0;
   int _correctCount = 0;
   String? _selectedOption;
@@ -24,6 +25,37 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
   List<String> _builtSentence = [];
   bool _answered = false;
   final Map<String, List<String>> _cachedScrambledWords = {};
+  final Map<String, List<String>> _cachedShuffledOptions = {};
+
+  final Map<String, int> _levelTotal = {};
+  final Map<String, int> _levelCorrect = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _questions = CurriculumData.getMasterExamQuestions(randomize: true);
+  }
+
+  String _getQuestionLevel(QuizQuestion q) {
+    final idLower = q.id.toLowerCase();
+    if (idLower.contains('a0')) return 'A0';
+    if (idLower.contains('a1')) return 'A1';
+    if (idLower.contains('a2')) return 'A2';
+    if (idLower.contains('b1')) return 'B1';
+    if (idLower.contains('b2')) return 'B2';
+    if (idLower.contains('c1')) return 'C1';
+    return 'A1';
+  }
+
+  List<String> _getOptions(QuizQuestion q) {
+    if (q.options == null || q.options!.isEmpty) return [];
+    if (_cachedShuffledOptions.containsKey(q.id)) {
+      return _cachedShuffledOptions[q.id]!;
+    }
+    final shuffled = List<String>.from(q.options!)..shuffle();
+    _cachedShuffledOptions[q.id] = shuffled;
+    return shuffled;
+  }
 
   List<String> _getScrambledWords(QuizQuestion q) {
     if (_cachedScrambledWords.containsKey(q.id)) {
@@ -59,8 +91,12 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
       isCorrect = _normalize(_builtSentence.join(' ')) == target;
     }
 
+    final lvl = _getQuestionLevel(q);
+    _levelTotal[lvl] = (_levelTotal[lvl] ?? 0) + 1;
+
     if (isCorrect) {
       _correctCount++;
+      _levelCorrect[lvl] = (_levelCorrect[lvl] ?? 0) + 1;
       SoundService().playCorrect();
     } else {
       SoundService().playIncorrect();
@@ -89,29 +125,60 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
       final total = _questions.length;
       final scorePercent = ((_correctCount / total) * 100).round();
 
+      // Identifier le niveau où l'élève a le plus de lacunes (taux de réussite le plus faible)
+      String weakestLevel = 'A1';
+      double lowestRate = 2.0;
+
+      const levelsOrder = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1'];
+      for (final lvl in levelsOrder) {
+        final tot = _levelTotal[lvl] ?? 0;
+        final corr = _levelCorrect[lvl] ?? 0;
+        if (tot > 0) {
+          final rate = corr / tot;
+          if (rate < lowestRate) {
+            lowestRate = rate;
+            weakestLevel = lvl;
+          }
+        }
+      }
+
       final provider = context.read<AppStateProvider>();
-      final passed = await provider.submitMasterExam(scorePercent);
+      final passed = await provider.submitMasterExam(scorePercent, weakestLevel: weakestLevel);
 
       if (mounted) {
-        _showMasterResultDialog(scorePercent, passed, provider);
+        _showMasterResultDialog(scorePercent, passed, weakestLevel, provider);
       }
     }
   }
 
-  void _showMasterResultDialog(int score, bool passed, AppStateProvider provider) {
+  void _showMasterResultDialog(int score, bool passed, String weakestLevel, AppStateProvider provider) {
+    final isLocked = provider.profile.isMasterExamLocked;
+    final lockedLvl = provider.profile.masterExamLockedLevel ?? weakestLevel;
+    final failures = provider.profile.masterExamFailedAttempts;
+
+    final totWeak = _levelTotal[weakestLevel] ?? 0;
+    final corrWeak = _levelCorrect[weakestLevel] ?? 0;
+    final weakRatePercent = totWeak > 0 ? ((corrWeak / totWeak) * 100).round() : 0;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (dialogCtx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(passed ? '🎓' : '📖', style: const TextStyle(fontSize: 52)),
+              Text(
+                passed ? '🎓' : (isLocked ? '🔒' : '📖'),
+                style: const TextStyle(fontSize: 52),
+              ),
               const SizedBox(height: 12),
               Text(
-                passed ? 'CERTIFICAT D\'EXCELLENCE OBTENU !' : 'Examen Non Validé',
+                passed
+                    ? 'CERTIFICAT D\'EXCELLENCE OBTENU !'
+                    : (isLocked ? 'GRAND EXAMEN VERROUILLÉ' : 'Examen Non Validé'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 20,
@@ -125,19 +192,65 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              Text(
-                passed
-                    ? 'Félicitations ! Vous avez validé avec brio le Grand Examen de Maîtrise couvrant l\'intégralité des 6 niveaux (A0 à C1) de Sawki English.'
-                    : 'Le seuil d\'excellence de 80% n\'a pas été atteint. Révisez vos lacunes et retentez votre chance !',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-              ),
+              if (passed) ...[
+                const Text(
+                  'Félicitations ! Vous avez validé avec brio le Grand Examen de Maîtrise couvrant l\'intégralité des 6 niveaux (A0 à C1) de Sawki English.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+              ] else if (isLocked) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+                  ),
+                  child: const Text(
+                    '🚨 3 Échecs Consécutifs Atteints',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Pour assurer une solide progression pédagogique, l\'examen final est temporairement verrouillé.\n\nVotre principale lacune a été identifiée sur le Niveau $lockedLvl (score de cette section : $weakRatePercent%).\n\nVous devez revalider l\'évaluation du Niveau $lockedLvl (≥ 80%) pour débloquer à nouveau le Grand Examen.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    'Tentative $failures/3 avant verrouillage',
+                    style: TextStyle(
+                      color: Colors.amber.shade900,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Le seuil d\'excellence de 80% n\'a pas été atteint.\n\nPoint faible détecté : Niveau $weakestLevel ($weakRatePercent% de réussite).\nAttention : 3 échecs consécutifs verrouillent l\'examen jusqu\'à revalidation de ce niveau !',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                ),
+              ],
               const SizedBox(height: 20),
               if (passed) ...[
                 ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.pop(context); // Dialog
-                    Navigator.pop(context); // Screen
+                    Navigator.pop(dialogCtx);
+                    Navigator.pop(context);
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -155,15 +268,46 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
+              ] else if (isLocked) ...[
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
+                    Navigator.pop(context);
+                    final target = CurriculumData.getLevelById(lockedLvl) ?? CurriculumData.levels.first;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EvaluationScreen(level: target),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.school),
+                  label: Text('Revalider le Niveau $lockedLvl 📚'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 46),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 10),
               ] else ...[
                 ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.pop(context);
+                    Navigator.pop(dialogCtx);
                     provider.watchAdForEnergy(context);
                     setState(() {
                       _currentIndex = 0;
                       _correctCount = 0;
                       _answered = false;
+                      _selectedOption = null;
+                      _textController.clear();
+                      _builtSentence = [];
+                      _cachedScrambledWords.clear();
+                      _cachedShuffledOptions.clear();
+                      _levelTotal.clear();
+                      _levelCorrect.clear();
+                      _questions = CurriculumData.getMasterExamQuestions(randomize: true);
                     });
                   },
                   icon: const Icon(Icons.movie_creation_outlined),
@@ -172,13 +316,34 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 44),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
+                    Navigator.pop(context);
+                    final target = CurriculumData.getLevelById(weakestLevel) ?? CurriculumData.levels.first;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EvaluationScreen(level: target),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.menu_book, size: 18),
+                  label: Text('Réviser le Niveau $weakestLevel'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 6),
               ],
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogCtx);
                   Navigator.pop(context);
                 },
                 child: const Text('Retour à l\'accueil'),
@@ -192,6 +357,74 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AppStateProvider>();
+    if (provider.profile.isMasterExamLocked) {
+      final lockedLevel = provider.profile.masterExamLockedLevel ?? 'A1';
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Grand Examen Verrouillé 🔒', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.error,
+          foregroundColor: Colors.white,
+          elevation: 0.5,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.lock_clock, size: 72, color: AppColors.error),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'EXAMEN TEMPORAIREMENT VERROUILLÉ',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Suite à 3 échecs consécutifs, vous devez revalider l\'évaluation du Niveau $lockedLevel (score ≥ 80%) pour combler vos lacunes avant de pouvoir repasser le Grand Examen.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
+                ),
+                const SizedBox(height: 28),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    final target = CurriculumData.getLevelById(lockedLevel) ?? CurriculumData.levels.first;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => EvaluationScreen(level: target)),
+                    );
+                  },
+                  icon: const Icon(Icons.school),
+                  label: Text('Revalider le Niveau $lockedLevel 📚'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Retour aux cours'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final q = _questions[_currentIndex];
     final progress = (_currentIndex + 1) / _questions.length;
 
@@ -270,7 +503,7 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
                         ),
                       ],
                       if (q.type == ExerciseType.multipleChoice || q.type == ExerciseType.translation)
-                        ...((q.options ?? []).map(
+                        ...(_getOptions(q).map(
                           (opt) => GestureDetector(
                             onTap: _answered ? null : () => setState(() => _selectedOption = opt),
                             child: Container(

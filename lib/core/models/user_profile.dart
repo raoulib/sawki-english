@@ -14,8 +14,12 @@ class UserProfile {
   final double speechRate; // 0.6 = slow, 1.0 = normal, 1.2 = fast
   final int? masterExamScore; // Score au Grand Examen Final
   final DateTime? masterExamDate; // Date d'obtention de la certification
+  final int masterExamFailedAttempts; // Nombre d'échecs consécutifs au Grand Examen
+  final String? masterExamLockedLevel; // Niveau où l'élève a le plus de lacunes et doit revalider
 
   bool get isCertified => (masterExamScore ?? 0) >= 80;
+  bool get isMasterExamLocked =>
+      masterExamFailedAttempts >= 3 && masterExamLockedLevel != null;
 
   UserProfile({
     required this.name,
@@ -33,6 +37,8 @@ class UserProfile {
     this.speechRate = 1.0,
     this.masterExamScore,
     this.masterExamDate,
+    this.masterExamFailedAttempts = 0,
+    this.masterExamLockedLevel,
   })  : completedLessons = completedLessons ?? [],
         evaluationScores = evaluationScores ?? {};
 
@@ -52,6 +58,8 @@ class UserProfile {
     double? speechRate,
     int? masterExamScore,
     DateTime? masterExamDate,
+    int? masterExamFailedAttempts,
+    String? masterExamLockedLevel,
   }) {
     return UserProfile(
       name: name ?? this.name,
@@ -69,6 +77,9 @@ class UserProfile {
       speechRate: speechRate ?? this.speechRate,
       masterExamScore: masterExamScore ?? this.masterExamScore,
       masterExamDate: masterExamDate ?? this.masterExamDate,
+      masterExamFailedAttempts:
+          masterExamFailedAttempts ?? this.masterExamFailedAttempts,
+      masterExamLockedLevel: masterExamLockedLevel ?? this.masterExamLockedLevel,
     );
   }
 
@@ -89,6 +100,8 @@ class UserProfile {
       'speechRate': speechRate,
       'masterExamScore': masterExamScore,
       'masterExamDate': masterExamDate?.toIso8601String(),
+      'masterExamFailedAttempts': masterExamFailedAttempts,
+      'masterExamLockedLevel': masterExamLockedLevel,
     };
   }
 
@@ -113,6 +126,8 @@ class UserProfile {
       masterExamDate: map['masterExamDate'] != null
           ? DateTime.tryParse(map['masterExamDate'])
           : null,
+      masterExamFailedAttempts: map['masterExamFailedAttempts'] as int? ?? 0,
+      masterExamLockedLevel: map['masterExamLockedLevel'] as String?,
     );
   }
 }

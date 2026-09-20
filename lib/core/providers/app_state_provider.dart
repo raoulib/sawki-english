@@ -490,6 +490,7 @@ class AppStateProvider extends ChangeNotifier {
 
   /// Enregistre le score d'évaluation d'un niveau.
   /// Seuil de réussite à 80% fixé par le cahier des charges !
+  /// Si ce niveau était celui qui verrouillait le Grand Examen, la validation le déverrouille !
   Future<bool> submitEvaluation(String levelId, int scorePercent) async {
     final scores = Map<String, int>.from(_profile.evaluationScores);
     scores[levelId] = scorePercent;
@@ -499,15 +500,27 @@ class AppStateProvider extends ChangeNotifier {
 
     if (passed) {
       // Déblocage du niveau suivant
+      if (levelId == 'A0') newLevel = 'A1';
       if (levelId == 'A1') newLevel = 'A2';
       if (levelId == 'A2') newLevel = 'B1';
       if (levelId == 'B1') newLevel = 'B2';
       if (levelId == 'B2') newLevel = 'C1';
     }
 
+    // Si l'élève a comblé ses lacunes et revalidé le niveau qui bloquait le Grand Examen :
+    int updatedFailures = _profile.masterExamFailedAttempts;
+    String? updatedLockedLevel = _profile.masterExamLockedLevel;
+    if (passed &&
+        _profile.masterExamLockedLevel?.toUpperCase() == levelId.toUpperCase()) {
+      updatedFailures = 0;
+      updatedLockedLevel = null;
+    }
+
     _profile = _profile.copyWith(
       evaluationScores: scores,
       currentLevel: newLevel,
+      masterExamFailedAttempts: updatedFailures,
+      masterExamLockedLevel: updatedLockedLevel,
       xp: _profile.xp + (passed ? 100 : 20),
     );
     await StorageService.saveUserProfile(_profile);
@@ -517,11 +530,23 @@ class AppStateProvider extends ChangeNotifier {
   }
 
   /// Soumission du Grand Examen Final de Certification (Seuil : 80%)
-  Future<bool> submitMasterExam(int scorePercent) async {
+  /// Si l'élève échoue 3 fois de suite, l'examen se verrouille
+  /// et renvoie l'élève vers le palier où il a le plus de lacunes ([weakestLevel]).
+  Future<bool> submitMasterExam(int scorePercent, {String? weakestLevel}) async {
     final bool passed = scorePercent >= 80;
+    int newFailures = passed ? 0 : (_profile.masterExamFailedAttempts + 1);
+    String? lockedLevel = passed ? null : _profile.masterExamLockedLevel;
+
+    // Si 3 échecs consécutifs sont atteints, verrouillage automatique
+    if (!passed && newFailures >= 3) {
+      lockedLevel = weakestLevel ?? 'A1';
+    }
+
     _profile = _profile.copyWith(
       masterExamScore: scorePercent,
       masterExamDate: passed ? DateTime.now() : _profile.masterExamDate,
+      masterExamFailedAttempts: newFailures,
+      masterExamLockedLevel: lockedLevel,
       xp: _profile.xp + (passed ? 250 : 50),
     );
     await StorageService.saveUserProfile(_profile);

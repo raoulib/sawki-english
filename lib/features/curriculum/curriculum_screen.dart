@@ -623,14 +623,20 @@ class _CurriculumScreenState extends State<CurriculumScreen> {
   Widget _buildMasterExamCard(BuildContext context, UserProfile profile, bool isMasterUnlocked) {
     final bool isCertified = profile.isCertified;
     final int? score = profile.masterExamScore;
+    final bool isLockedByFailures = profile.isMasterExamLocked;
+    final String lockedLevel = profile.masterExamLockedLevel ?? 'A1';
 
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: isCertified ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
+        color: isCertified
+            ? const Color(0xFF1E293B)
+            : (isLockedByFailures ? const Color(0xFF2D1212) : const Color(0xFF0F172A)),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isCertified ? AppColors.duoGold : Colors.blueGrey.shade700,
+          color: isCertified
+              ? AppColors.duoGold
+              : (isLockedByFailures ? AppColors.error : Colors.blueGrey.shade700),
           width: 2,
         ),
         boxShadow: const [
@@ -651,11 +657,17 @@ class _CurriculumScreenState extends State<CurriculumScreen> {
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isCertified ? AppColors.duoGold : Colors.white.withValues(alpha: 0.15),
+                  color: isCertified
+                      ? AppColors.duoGold
+                      : (isLockedByFailures
+                          ? AppColors.error.withValues(alpha: 0.2)
+                          : Colors.white.withValues(alpha: 0.15)),
                 ),
                 child: Center(
                   child: Text(
-                    isCertified ? '🏆' : (!isMasterUnlocked ? '🔒' : '👑'),
+                    isCertified
+                        ? '🏆'
+                        : (isLockedByFailures ? '🔒' : (!isMasterUnlocked ? '🔒' : '👑')),
                     style: const TextStyle(fontSize: 30),
                   ),
                 ),
@@ -668,9 +680,13 @@ class _CurriculumScreenState extends State<CurriculumScreen> {
                     Text(
                       isCertified
                           ? 'CERTIFICATION OFFICIELLE C1'
-                          : 'GRAND EXAMEN DE MAÎTRISE',
+                          : (isLockedByFailures
+                              ? 'GRAND EXAMEN VERROUILLÉ 🔒'
+                              : 'GRAND EXAMEN DE MAÎTRISE'),
                       style: TextStyle(
-                        color: isCertified ? AppColors.duoGold : Colors.white,
+                        color: isCertified
+                            ? AppColors.duoGold
+                            : (isLockedByFailures ? AppColors.duoRed : Colors.white),
                         fontWeight: FontWeight.w900,
                         fontSize: 16,
                         letterSpacing: 0.8,
@@ -680,9 +696,13 @@ class _CurriculumScreenState extends State<CurriculumScreen> {
                     Text(
                       isCertified
                           ? 'Score validé : $score% • Diplôme prêt'
-                          : (!isMasterUnlocked
-                              ? 'Validez les 6 niveaux (A0 à C1) à 80%'
-                              : 'Épreuve d\'excellence finale'),
+                          : (isLockedByFailures
+                              ? '3 échecs consécutifs • Lacunes en Niveau $lockedLevel'
+                              : (!isMasterUnlocked
+                                  ? 'Validez les 6 niveaux (A0 à C1) à 80%'
+                                  : (profile.masterExamFailedAttempts > 0
+                                      ? 'Épreuve finale • Tentative ${profile.masterExamFailedAttempts}/3'
+                                      : 'Épreuve d\'excellence finale'))),
                       style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
@@ -694,25 +714,42 @@ class _CurriculumScreenState extends State<CurriculumScreen> {
           Text(
             isCertified
                 ? 'Félicitations ! Vous avez validé avec succès l\'ensemble des 6 niveaux de Sawki English (de Fondations Zéro à Maîtrise Bilingue C1). Votre certificat officiel atteste de votre bilinguisme américain.'
-                : (!isMasterUnlocked
-                    ? 'Ce test prestigieux couronne l\'ensemble du cursus Sawki English. Validez tous les niveaux (A0, A1, A2, B1, B2, C1) avec au moins 80% pour débloquer l\'épreuve finale.'
-                    : 'Ce test exhaustif met à l\'épreuve l\'ensemble de vos compétences : compréhension orale US native, fluidité spontanée, phrasal verbs et leadership. Un score de 80% est requis pour décrocher la certification.'),
+                : (isLockedByFailures
+                    ? 'Suite à 3 échecs consécutifs, le Grand Examen est temporairement verrouillé pour assurer votre progression. Vous devez impérativement repasser et valider l\'évaluation du Niveau $lockedLevel (score ≥ 80%). Une fois ce palier réussi, le Grand Examen sera automatiquement débloqué !'
+                    : (!isMasterUnlocked
+                        ? 'Ce test prestigieux couronne l\'ensemble du cursus Sawki English. Validez tous les niveaux (A0, A1, A2, B1, B2, C1) avec au moins 80% pour débloquer l\'épreuve finale.'
+                        : 'Ce test exhaustif met à l\'épreuve l\'ensemble de vos compétences : compréhension orale US native, fluidité spontanée, phrasal verbs et leadership. Un score de 80% est requis pour décrocher la certification.')),
             style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 24),
           TactileButton(
             text: isCertified
                 ? 'VOIR & TÉLÉCHARGER MON DIPLÔME 📜'
-                : (!isMasterUnlocked ? 'DÉBLOQUER VIA LES NIVEAUX 🔒' : 'COMMENCER LE GRAND EXAMEN 🚀'),
+                : (isLockedByFailures
+                    ? 'REVALIDER LE NIVEAU $lockedLevel 📚'
+                    : (!isMasterUnlocked
+                        ? 'DÉBLOQUER VIA LES NIVEAUX 🔒'
+                        : 'COMMENCER LE GRAND EXAMEN 🚀')),
             type: isCertified
                 ? TactileButtonType.gold
-                : (!isMasterUnlocked ? TactileButtonType.neutral : TactileButtonType.primary),
+                : (isLockedByFailures
+                    ? TactileButtonType.danger
+                    : (!isMasterUnlocked ? TactileButtonType.neutral : TactileButtonType.primary)),
             onPressed: () {
               if (isCertified) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => CertificateScreen(profile: profile),
+                  ),
+                );
+              } else if (isLockedByFailures) {
+                final targetLevel =
+                    CurriculumData.getLevelById(lockedLevel) ?? CurriculumData.levels.first;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EvaluationScreen(level: targetLevel),
                   ),
                 );
               } else if (!isMasterUnlocked) {

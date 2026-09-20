@@ -5,6 +5,8 @@ import '../../core/models/curriculum_models.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/services/tts_service.dart';
 import '../../core/services/sound_service.dart';
+import '../../core/data/curriculum_data.dart';
+import 'master_exam_screen.dart';
 
 class EvaluationScreen extends StatefulWidget {
   final LevelCurriculum level;
@@ -16,6 +18,7 @@ class EvaluationScreen extends StatefulWidget {
 }
 
 class _EvaluationScreenState extends State<EvaluationScreen> {
+  late List<QuizQuestion> _questions;
   int _currentIndex = 0;
   int _correctCount = 0;
   String? _selectedOption;
@@ -23,6 +26,27 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
   List<String> _builtSentence = [];
   bool _answered = false;
   final Map<String, List<String>> _cachedScrambledWords = {};
+  final Map<String, List<String>> _cachedShuffledOptions = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _questions = CurriculumData.getEvaluationQuestionsForLevel(
+      widget.level,
+      count: 10,
+      randomize: true,
+    );
+  }
+
+  List<String> _getOptions(QuizQuestion q) {
+    if (q.options == null || q.options!.isEmpty) return [];
+    if (_cachedShuffledOptions.containsKey(q.id)) {
+      return _cachedShuffledOptions[q.id]!;
+    }
+    final shuffled = List<String>.from(q.options!)..shuffle();
+    _cachedShuffledOptions[q.id] = shuffled;
+    return shuffled;
+  }
 
   List<String> _getScrambledWords(QuizQuestion q) {
     if (_cachedScrambledWords.containsKey(q.id)) {
@@ -46,7 +70,7 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
   }
 
   void _submitAnswer() {
-    final q = widget.level.evaluationQuestions[_currentIndex];
+    final q = _questions[_currentIndex];
     bool isCorrect = false;
     final target = _normalize(q.correctAnswer);
 
@@ -71,7 +95,7 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
   }
 
   void _nextQuestion() async {
-    if (_currentIndex < widget.level.evaluationQuestions.length - 1) {
+    if (_currentIndex < _questions.length - 1) {
       setState(() {
         _currentIndex++;
         _answered = false;
@@ -79,38 +103,50 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
         _textController.clear();
         _builtSentence = [];
       });
-      final nextQ = widget.level.evaluationQuestions[_currentIndex];
+      final nextQ = _questions[_currentIndex];
       if (nextQ.type == ExerciseType.dictation && nextQ.audioText != null) {
         TtsService().speak(nextQ.audioText!);
       }
     } else {
       // Calcul du score final en pourcentage
-      final total = widget.level.evaluationQuestions.length;
+      final total = _questions.length;
       final scorePercent = ((_correctCount / total) * 100).round();
 
       final provider = context.read<AppStateProvider>();
+      final wasLockedForThisLevel = provider.profile.isMasterExamLocked &&
+          provider.profile.masterExamLockedLevel?.toUpperCase() == widget.level.id.toUpperCase();
+
       final passed = await provider.submitEvaluation(widget.level.id, scorePercent);
 
       if (mounted) {
-        _showResultDialog(scorePercent, passed, provider);
+        _showResultDialog(scorePercent, passed, wasLockedForThisLevel, provider);
       }
     }
   }
 
-  void _showResultDialog(int score, bool passed, AppStateProvider provider) {
+  void _showResultDialog(int score, bool passed, bool unlockedMasterExam, AppStateProvider provider) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (dialogCtx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(passed ? '🏆' : '📚', style: const TextStyle(fontSize: 50)),
+              Text(
+                passed ? (unlockedMasterExam ? '🔓' : '🏆') : '📚',
+                style: const TextStyle(fontSize: 52),
+              ),
               const SizedBox(height: 12),
               Text(
-                passed ? 'NIVEAU VALIDÉ !' : 'Poursuivez vos efforts !',
+                passed
+                    ? (unlockedMasterExam
+                        ? 'GRAND EXAMEN DÉBLOQUÉ !'
+                        : 'NIVEAU VALIDÉ !')
+                    : 'Poursuivez vos efforts !',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -125,22 +161,56 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
               const SizedBox(height: 12),
               Text(
                 passed
-                    ? 'Félicitations ! Vous avez prouvé vos compétences et débloqué le niveau suivant.'
+                    ? (unlockedMasterExam
+                        ? 'Félicitations ! Vous avez comblé vos lacunes et validé le Niveau ${widget.level.id}. Le Grand Examen de Maîtrise est désormais débloqué !'
+                        : 'Félicitations ! Vous avez prouvé vos compétences et débloqué le niveau suivant.')
                     : 'Il vous manque encore quelques points pour atteindre les 80%. Révisez vos lacunes et retentez !',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
               const SizedBox(height: 20),
-              if (!passed) ...[
+              if (passed && unlockedMasterExam) ...[
                 ElevatedButton.icon(
                   onPressed: () {
+                    Navigator.pop(dialogCtx);
                     Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MasterExamScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.workspace_premium),
+                  label: const Text('Passer le Grand Examen 🚀'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD4AF37),
+                    foregroundColor: Colors.black87,
+                    minimumSize: const Size(double.infinity, 46),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ] else if (!passed) ...[
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
                     provider.watchAdForEnergy(context);
-                    // Relancer
+                    // Relancer avec questions dynamiques réinitialisées
                     setState(() {
                       _currentIndex = 0;
                       _correctCount = 0;
                       _answered = false;
+                      _selectedOption = null;
+                      _textController.clear();
+                      _builtSentence = [];
+                      _cachedScrambledWords.clear();
+                      _cachedShuffledOptions.clear();
+                      _questions = CurriculumData.getEvaluationQuestionsForLevel(
+                        widget.level,
+                        count: 10,
+                        randomize: true,
+                      );
                     });
                   },
                   icon: const Icon(Icons.movie_creation_outlined),
@@ -149,13 +219,14 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 44),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 10),
               ],
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogCtx);
                   Navigator.pop(context);
                 },
                 child: const Text('Retour aux cours'),
@@ -169,7 +240,7 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final questions = widget.level.evaluationQuestions;
+    final questions = _questions;
     final q = questions[_currentIndex];
     final progress = (_currentIndex + 1) / questions.length;
 
@@ -247,7 +318,7 @@ class _EvaluationScreenState extends State<EvaluationScreen> {
                         ),
                       ],
                       if (q.type == ExerciseType.multipleChoice || q.type == ExerciseType.translation)
-                        ...((q.options ?? []).map(
+                        ...(_getOptions(q).map(
                           (opt) => GestureDetector(
                             onTap: _answered ? null : () => setState(() => _selectedOption = opt),
                             child: Container(
