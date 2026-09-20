@@ -177,6 +177,17 @@ class StorageService {
     await box.put('daily_reminder_minute', minute);
   }
 
+  // --- CERTIFICATION NOM COMPLET OFFICIEL ---
+  static String? getCertificateFullName() {
+    final box = Hive.box(_settingsBoxName);
+    return box.get('certificate_full_name') as String?;
+  }
+
+  static Future<void> saveCertificateFullName(String fullName) async {
+    final box = Hive.box(_settingsBoxName);
+    await box.put('certificate_full_name', fullName.trim());
+  }
+
   // --- DÉCONNEXION & RÉINITIALISATION DE L'APPAREIL ---
   /// Supprime toutes les données locales de l'appareil pour permettre
   /// une déconnexion propre ou la cession du téléphone à une autre personne.

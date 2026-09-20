@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/models/user_profile.dart';
+import '../../core/services/storage_service.dart';
 
 class CertificateScreen extends StatefulWidget {
   final UserProfile profile;
@@ -20,6 +21,125 @@ class CertificateScreen extends StatefulWidget {
 class _CertificateScreenState extends State<CertificateScreen> {
   final GlobalKey _certificateKey = GlobalKey();
   bool _isExporting = false;
+  late String _fullName;
+
+  @override
+  void initState() {
+    super.initState();
+    final stored = StorageService.getCertificateFullName();
+    if (stored != null && stored.trim().isNotEmpty) {
+      _fullName = stored.trim();
+    } else {
+      _fullName = widget.profile.name.trim();
+    }
+
+    // Si aucun nom complet officiel n'a encore été enregistré,
+    // inviter immédiatement l'apprenant à saisir son nom complet pour le document
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (stored == null || stored.trim().isEmpty) {
+        _promptForFullName(isInitial: true);
+      }
+    });
+  }
+
+  String _formatDateEnglish(DateTime? date) {
+    final d = date ?? DateTime.now();
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
+  }
+
+  Future<void> _promptForFullName({bool isInitial = false}) async {
+    final controller = TextEditingController(text: _fullName);
+    await showDialog(
+      context: context,
+      barrierDismissible: !isInitial,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Text('🎓', style: TextStyle(fontSize: 26)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Nom Complet Officiel',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Veuillez saisir votre Nom et Prénom complets (pour votre CV, LinkedIn, employeurs) tels qu\'ils doivent figurer sur votre certification officielle :',
+              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                hintText: 'Prénom et Nom (ex: Ibrahim Moudy)',
+                hintStyle: const TextStyle(color: Colors.white38),
+                filled: true,
+                fillColor: Colors.black26,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD4AF37)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: const Color(0xFFD4AF37).withValues(alpha: 0.5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                ),
+                prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFFD4AF37)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (!isInitial)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler', style: TextStyle(color: Colors.white60)),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              final entered = controller.text.trim();
+              if (entered.isNotEmpty) {
+                setState(() {
+                  _fullName = entered;
+                });
+                StorageService.saveCertificateFullName(entered);
+                Navigator.pop(ctx);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
+            child: const Text('Valider pour le Diplôme', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<Uint8List?> _captureCertificate() async {
     try {
@@ -50,8 +170,8 @@ class _CertificateScreenState extends State<CertificateScreen> {
         return;
       }
 
-      final cleanName = widget.profile.name.trim().replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
-      final fileName = 'Diplome_Sawki_English_${cleanName.isEmpty ? "Apprenant" : cleanName}.png';
+      final cleanName = _fullName.trim().replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
+      final fileName = 'Certificate_Sawki_English_${cleanName.isEmpty ? "Graduate" : cleanName}.png';
 
       File? savedPublicFile;
       // 1. Essayer le dossier public Download d'Android
@@ -97,8 +217,8 @@ class _CertificateScreenState extends State<CertificateScreen> {
       final bytes = await _captureCertificate();
       if (bytes == null) return;
 
-      final cleanName = widget.profile.name.trim().replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
-      final fileName = 'Diplome_Sawki_English_${cleanName.isEmpty ? "Apprenant" : cleanName}.png';
+      final cleanName = _fullName.trim().replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
+      final fileName = 'Certificate_Sawki_English_${cleanName.isEmpty ? "Graduate" : cleanName}.png';
 
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/$fileName');
@@ -107,8 +227,8 @@ class _CertificateScreenState extends State<CertificateScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path, mimeType: 'image/png', name: fileName)],
-          text: '🎓 Diplôme Officiel de Maîtrise Bilingue Sawki English décerné à ${widget.profile.name.isNotEmpty ? widget.profile.name : "l'Apprenant Exemplaire"} avec un score de ${widget.profile.masterExamScore ?? 100}% ! Félicitations !',
-          subject: 'Diplôme Officiel Sawki English - ${widget.profile.name}',
+          text: '🎓 Official Certificate of Bilingual Proficiency & Fluency awarded to $_fullName with a final score of ${widget.profile.masterExamScore ?? 100}%! Issued by Sawki English Academy.',
+          subject: 'Official Sawki English Certificate - $_fullName',
         ),
       );
     } catch (e) {
@@ -149,9 +269,9 @@ class _CertificateScreenState extends State<CertificateScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Votre diplôme officiel a été généré avec succès en haute définition (qualité HD imprimable).',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+            Text(
+              'Votre diplôme officiel au nom de "$_fullName" a été généré avec succès en haute définition (qualité HD imprimable).',
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 12),
             Container(
@@ -201,18 +321,19 @@ class _CertificateScreenState extends State<CertificateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = widget.profile.masterExamDate != null
-        ? '${widget.profile.masterExamDate!.day.toString().padLeft(2, '0')}/${widget.profile.masterExamDate!.month.toString().padLeft(2, '0')}/${widget.profile.masterExamDate!.year}'
-        : 'Aujourd\'hui';
-
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text('Diplôme Officiel Sawki English', style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: const Text('Official Certificate of Fluency', style: TextStyle(color: Colors.white, fontSize: 16)),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: Color(0xFFD4AF37)),
+            tooltip: 'Modifier le nom officiel',
+            onPressed: () => _promptForFullName(isInitial: false),
+          ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.white),
             tooltip: 'Partager le diplôme',
@@ -283,30 +404,31 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       const SizedBox(height: 22),
 
                       const Text(
-                        'CERTIFICAT D\'EXCELLENCE & MAÎTRISE BILINGUE',
+                        'CERTIFICATE OF EXCELLENCE &\nBILINGUAL PROFICIENCY',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.1,
                           color: Color(0xFF1E3A8A),
+                          height: 1.3,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       const Text(
-                        'Ce certificat officiel atteste que',
+                        'This official certificate is proudly awarded to',
                         style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 12),
 
-                      // Nom de l'apprenant
+                      // Nom officiel de l'apprenant
                       Text(
-                        widget.profile.name.isNotEmpty ? widget.profile.name : 'L\'Apprenant Exemplaire',
+                        _fullName.isNotEmpty ? _fullName : 'Distinguished Graduate',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          fontSize: 24,
+                          fontSize: 25,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFD4AF37),
+                          color: Color(0xFFB45309),
                           decoration: TextDecoration.underline,
                           decorationColor: Color(0xFFD4AF37),
                         ),
@@ -314,9 +436,9 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       const SizedBox(height: 14),
 
                       const Text(
-                        'a validé avec brio l\'intégralité des 6 niveaux du cursus Sawki English (de Fondations Zéro à Maîtrise C1), attestant de son excellente maîtrise de l\'anglais américain parlé et écrit, de sa fluidité spontanée et de ses compétences professionnelles internationales.',
+                        'for successfully completing all 6 levels of the comprehensive Sawki English Curriculum (Foundations A0 through Advanced Mastery C1), demonstrating exceptional proficiency in spoken and written American English, spontaneous conversational fluency, and international professional communication skills.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textPrimary),
+                        style: TextStyle(fontSize: 12, height: 1.45, color: AppColors.textPrimary),
                       ),
                       const SizedBox(height: 20),
 
@@ -338,15 +460,15 @@ class _CertificateScreenState extends State<CertificateScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Score Final : ${widget.profile.masterExamScore ?? 100}%',
+                                    'Final Examination Score: ${widget.profile.masterExamScore ?? 100}%',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 15,
+                                      fontSize: 14,
                                       color: Color(0xFF92400E),
                                     ),
                                   ),
                                   const Text(
-                                    'Niveau : C1 - Maîtrise Bilingue (Score ≥ 80%)',
+                                    'Proficiency Level: C1 - Bilingual Mastery (Passing Grade ≥ 80%)',
                                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFB45309)),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -366,8 +488,12 @@ class _CertificateScreenState extends State<CertificateScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Délivré le :', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                                Text(dateStr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                const Text('Date Issued:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _formatDateEnglish(widget.profile.masterExamDate),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
                               ],
                             ),
                           ),
@@ -376,9 +502,10 @@ class _CertificateScreenState extends State<CertificateScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('Validé par :', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                const Text('Certified & Validated by:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                const SizedBox(height: 2),
                                 Text(
-                                  'Sarah 🇺🇸 (Coach Américaine)',
+                                  'Sarah 🇺🇸 (Lead American Coach)',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                                 ),
@@ -391,7 +518,27 @@ class _CertificateScreenState extends State<CertificateScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
+
+              // Bouton pour modifier le Nom Complet
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _promptForFullName(isInitial: false),
+                  icon: const Icon(Icons.edit_outlined, color: Color(0xFFD4AF37), size: 18),
+                  label: Text(
+                    'Nom sur le document : ${_fullName.isNotEmpty ? _fullName : "À renseigner"} (Modifier ✏️)',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFD4AF37), width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
 
               // Bouton Télécharger mon Diplôme
               SizedBox(
@@ -407,7 +554,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                         )
                       : const Icon(Icons.file_download_outlined, color: Colors.black, size: 22),
                   label: Text(
-                    _isExporting ? 'Génération en cours...' : 'Télécharger mon Diplôme (Image HD) 📥',
+                    _isExporting ? 'Generating Certificate...' : 'Télécharger mon Diplôme (Image HD) 📥',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -432,7 +579,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                   onPressed: _isExporting ? null : _shareDiploma,
                   icon: const Icon(Icons.share, color: Colors.white, size: 18),
                   label: const Text(
-                    'Partager mon Diplôme (WhatsApp, Drive...) 📤',
+                    'Partager mon Diplôme (LinkedIn, WhatsApp...) 📤',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   style: OutlinedButton.styleFrom(
