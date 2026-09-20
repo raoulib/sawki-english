@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import '../../core/config/app_config.dart';
 import '../../core/providers/app_state_provider.dart';
 
 class PremiumScreen extends StatefulWidget {
@@ -13,7 +16,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
   int _selectedPlanIndex = 0; // 0 = Annuel (recommandé), 1 = Mensuel
   final TextEditingController _promoController = TextEditingController();
   String? _appliedPromoCode;
-  int _discountPercent = 0; // 0, 30, 50, 100
+  int _discountPercent = 0; // Pourcentage de réduction (ex: 20, 30, 50%)
+  bool _isValidatingPromo = false;
   String? _promoErrorMessage;
   String? _promoSuccessMessage;
 
@@ -45,28 +49,30 @@ class _PremiumScreenState extends State<PremiumScreen> {
   ];
 
   String _getPlanPrice(Map<String, dynamic> plan) {
-    if (_discountPercent == 50) {
-      return plan['id'] == 'sawki_premium_annual' ? '14,99 € / an' : '2,49 € / mois';
-    } else if (_discountPercent == 30) {
-      return plan['id'] == 'sawki_premium_annual' ? '20,99 € / an' : '3,49 € / mois';
+    if (_discountPercent > 0) {
+      final double base = plan['id'] == 'sawki_premium_annual' ? 29.99 : 4.99;
+      final double discounted = base * (1 - (_discountPercent / 100));
+      final String formatted = discounted.toStringAsFixed(2).replaceAll('.', ',');
+      final String unit = plan['id'] == 'sawki_premium_annual' ? 'an' : 'mois';
+      return '$formatted € / $unit';
     }
     return plan['price'];
   }
 
   String _getPlanSubprice(Map<String, dynamic> plan) {
-    if (_discountPercent == 50) {
-      return plan['id'] == 'sawki_premium_annual'
-          ? 'Soit seulement 1,25 € / mois (-50%)'
-          : 'Sans engagement (-50%)';
-    } else if (_discountPercent == 30) {
-      return plan['id'] == 'sawki_premium_annual'
-          ? 'Soit seulement 1,75 € / mois (-30%)'
-          : 'Sans engagement (-30%)';
+    if (_discountPercent > 0) {
+      if (plan['id'] == 'sawki_premium_annual') {
+        final double monthlyEquivalent = (29.99 * (1 - (_discountPercent / 100))) / 12;
+        final String formatted = monthlyEquivalent.toStringAsFixed(2).replaceAll('.', ',');
+        return 'Soit seulement $formatted € / mois (-$_discountPercent%)';
+      } else {
+        return 'Sans engagement (-$_discountPercent%)';
+      }
     }
     return plan['subprice'];
   }
 
-  void _applyPromoCode(AppStateProvider provider) async {
+  Future<void> _applyPromoCode(AppStateProvider provider) async {
     final code = _promoController.text.trim().toUpperCase();
     FocusScope.of(context).unfocus();
 
@@ -78,94 +84,87 @@ class _PremiumScreenState extends State<PremiumScreen> {
       return;
     }
 
-    // 1. Codes Créateur / VIP Gratuit à vie (100% de réduction)
-    const vipCodes = [
-      'SAWKI2026',
-      'SAWKI-VIP',
-      'SAWKIGROUP',
-      'FOUNDER',
-      'VIP2026',
-      'SAWKIENGLISH',
-      'SAWKI-VIP-2026'
-    ];
-    if (vipCodes.contains(code)) {
-      await provider.updateProfile(isPremium: true);
-      await provider.syncToCloud();
-
-      if (!mounted) return;
-      setState(() {
-        _appliedPromoCode = code;
-        _discountPercent = 100;
-        _promoErrorMessage = null;
-        _promoSuccessMessage = 'Accès VIP à vie activé avec succès !';
-      });
-
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Row(
-            children: [
-              Icon(Icons.workspace_premium, color: Color(0xFFD4AF37), size: 30),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Code VIP Validé ! 👑',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-              ),
-            ],
-          ),
-          content: const Text(
-            'Félicitations ! Votre code créateur a débloqué l\'accès Sawki Premium à vie sans aucune limite ni publicité.\n\nCe statut a été automatiquement synchronisé avec votre Cloud officiel Sawki.',
-            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('Profiter de Premium', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    // 2. Codes de Réduction 50%
-    const promo50Codes = ['SAWKI50', 'PROMO50', 'SAVE50'];
-    if (promo50Codes.contains(code)) {
-      setState(() {
-        _appliedPromoCode = code;
-        _discountPercent = 50;
-        _promoErrorMessage = null;
-        _promoSuccessMessage = 'Réduction de 50% appliquée sur tous les tarifs ! 🎉';
-      });
-      return;
-    }
-
-    // 3. Codes de Réduction 30%
-    const promo30Codes = ['SAWKI30', 'PROMO30', 'SAVE30'];
-    if (promo30Codes.contains(code)) {
-      setState(() {
-        _appliedPromoCode = code;
-        _discountPercent = 30;
-        _promoErrorMessage = null;
-        _promoSuccessMessage = 'Réduction de 30% appliquée sur tous les tarifs ! 🎉';
-      });
-      return;
-    }
-
-    // Code Invalide
     setState(() {
-      _promoErrorMessage = 'Code promotionnel invalide ou expiré.';
+      _isValidatingPromo = true;
+      _promoErrorMessage = null;
       _promoSuccessMessage = null;
     });
+
+    try {
+      int? foundDiscount;
+
+      // 1. Vérification dynamique en temps réel sur Supabase Cloud
+      try {
+        final encodedCode = Uri.encodeComponent(code);
+        final url = Uri.parse(
+          '${AppConfig.supabaseUrl}/rest/v1/promo_codes?code=eq.$encodedCode&is_active=eq.true&select=*',
+        );
+        final response = await http.get(url, headers: {
+          'apikey': AppConfig.supabaseAnonKey,
+          'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
+        }).timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          if (data.isNotEmpty) {
+            final row = data.first;
+            final percent = row['discount_percent'];
+            if (percent is int) {
+              foundDiscount = percent;
+            } else if (percent is num) {
+              foundDiscount = percent.toInt();
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Vérification Supabase promo codes : $e');
+      }
+
+      // 2. Codes de réduction intégrés par défaut (fonctionne hors ligne ou avant config Supabase)
+      if (foundDiscount == null) {
+        final defaultDiscountCodes = {
+          'SAWKI50': 50,
+          'PROMO50': 50,
+          'SAVE50': 50,
+          'SAWKI30': 30,
+          'PROMO30': 30,
+          'SAVE30': 30,
+          'SAWKI20': 20,
+          'PROMO20': 20,
+          'SAVE20': 20,
+          'SAWKI10': 10,
+          'WELCOME10': 10,
+        };
+        if (defaultDiscountCodes.containsKey(code)) {
+          foundDiscount = defaultDiscountCodes[code];
+        }
+      }
+
+      if (!mounted) return;
+
+      if (foundDiscount != null && foundDiscount > 0 && foundDiscount <= 90) {
+        setState(() {
+          _appliedPromoCode = code;
+          _discountPercent = foundDiscount!;
+          _promoErrorMessage = null;
+          _promoSuccessMessage = 'Réduction de $_discountPercent% appliquée sur tous les tarifs ! 🎉';
+          _isValidatingPromo = false;
+        });
+      } else {
+        setState(() {
+          _promoErrorMessage = 'Code promotionnel invalide ou expiré.';
+          _promoSuccessMessage = null;
+          _isValidatingPromo = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _promoErrorMessage = 'Erreur lors de la validation du code.';
+        _promoSuccessMessage = null;
+        _isValidatingPromo = false;
+      });
+    }
   }
 
   void _removePromoCode() {
@@ -506,7 +505,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
               }),
               const SizedBox(height: 16),
 
-              // Section Code Promo / Code VIP
+              // Section Code Promo
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -528,7 +527,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                         const SizedBox(width: 8),
                         const Expanded(
                           child: Text(
-                            'Vous avez un code promo ou VIP ?',
+                            'Vous avez un code promo ?',
                             style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -555,7 +554,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                             textCapitalization: TextCapitalization.characters,
                             style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1),
                             decoration: InputDecoration(
-                              hintText: 'Code promo (ex: SAWKI2026)',
+                              hintText: 'Code promo (ex: SAWKI50)',
                               hintStyle: const TextStyle(color: Colors.white38, fontSize: 12, letterSpacing: 0),
                               filled: true,
                               fillColor: Colors.black.withValues(alpha: 0.3),
@@ -569,14 +568,20 @@ class _PremiumScreenState extends State<PremiumScreen> {
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
-                          onPressed: () => _applyPromoCode(provider),
+                          onPressed: _isValidatingPromo ? null : () => _applyPromoCode(provider),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFD4AF37),
                             foregroundColor: Colors.black,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           ),
-                          child: const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          child: _isValidatingPromo
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                )
+                              : const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
                       ],
                     ),
