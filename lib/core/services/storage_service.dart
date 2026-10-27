@@ -115,6 +115,17 @@ class StorageService {
     await box.put('gemini_api_key', apiKey.trim());
   }
 
+  /// L'utilisateur a confirmé avoir 18 ans ou plus.
+  static bool isAgeConfirmed() {
+    final box = Hive.box(_settingsBoxName);
+    return box.get('age_confirmed_18') == true;
+  }
+
+  static Future<void> setAgeConfirmed() async {
+    final box = Hive.box(_settingsBoxName);
+    await box.put('age_confirmed_18', true);
+  }
+
   static bool isOnboardingCompleted() {
     final box = Hive.box(_settingsBoxName);
     return box.get('onboarding_completed') == true;

@@ -21,7 +21,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   /// Sawki English est réservée aux 18 ans et plus (conditions de l'API Gemini).
   bool _checkAgeConfirmed() {
-    if (_ageConfirmed) return true;
+    if (_ageConfirmed) {
+      StorageService.setAgeConfirmed();
+      return true;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Veuillez confirmer que vous avez 18 ans ou plus.')),
     );

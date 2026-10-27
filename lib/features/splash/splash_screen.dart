@@ -43,6 +43,15 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     final bool isDone = StorageService.isOnboardingCompleted();
+
+    // Installations existantes : confirmer l'âge minimum (18 ans) avant l'accueil.
+    if (isDone && !StorageService.isAgeConfirmed()) {
+      final confirmed = await _askAgeConfirmation();
+      if (!confirmed || !mounted) return;
+      await StorageService.setAgeConfirmed();
+      if (!mounted) return;
+    }
+
     final Widget targetScreen = isDone ? const HomeScreen() : const OnboardingScreen();
 
     Navigator.of(context).pushReplacement(
@@ -54,6 +63,40 @@ class _SplashScreenState extends State<SplashScreen> {
         transitionDuration: const Duration(milliseconds: 400),
       ),
     );
+  }
+
+  /// Demande une fois aux utilisateurs existants de confirmer leur âge.
+  /// Renvoie false si l'utilisateur indique avoir moins de 18 ans.
+  Future<bool> _askAgeConfirmation() async {
+    final answer = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Confirmation d\'âge', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Sawki English est désormais réservée aux personnes de 18 ans et plus. Confirmez-vous avoir 18 ans ou plus ?',
+          style: TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('J\'ai moins de 18 ans'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('J\'ai 18 ans ou plus'),
+          ),
+        ],
+      ),
+    );
+    if (answer == true) return true;
+    if (mounted) {
+      setState(() {
+        _loadingStatus = 'Sawki English est réservée aux 18 ans et plus.';
+      });
+    }
+    return false;
   }
 
   @override
