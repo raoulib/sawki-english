@@ -1,10 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/user_profile.dart';
-import '../config/app_config.dart';
 import '../config/monetization_config.dart';
 import 'storage_service.dart';
+import 'auth_service.dart';
 
 /// Service de sauvegarde et synchronisation de la progression de l'apprenant.
 /// Intègre Supabase Cloud et la Clé Portable Sawki (double couche de sécurité).
@@ -13,26 +12,25 @@ class CloudSyncService {
   factory CloudSyncService() => _instance;
   CloudSyncService._internal();
 
-  // --- SUPABASE CLOUD REST API ---
+  // --- SUPABASE CLOUD ---
+  //
+  // Chaque profil appartient à un utilisateur Supabase Auth. Les règles RLS
+  // (supabase/migrations) garantissent que chacun ne lit et n'écrit que sa
+  // propre ligne. Le serveur remplit lui-même user_id, email et is_premium.
 
-  static Map<String, String> get _supabaseHeaders => {
-    'apikey': AppConfig.supabaseAnonKey,
-    'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
-    'Content-Type': 'application/json; charset=utf-8',
-  };
-
-  /// Synchronise le profil de l'apprenant sur Supabase Cloud
+  /// Synchronise le profil de l'apprenant sur Supabase Cloud.
+  /// Ne fait rien tant que l'email n'a pas été vérifié par code.
   Future<bool> syncProfileToSupabase(UserProfile profile) async {
-    final email = profile.email?.trim().toLowerCase();
-    if (email == null || email.isEmpty || !email.contains('@')) {
-      debugPrint("Supabase sync skipped: No valid email associated.");
+    final auth = AuthService();
+    final client = auth.client;
+    if (client == null || auth.verifiedEmail == null) {
+      debugPrint("Supabase sync skipped: no verified email session.");
       return false;
     }
 
     try {
-      final url = Uri.parse('${AppConfig.supabaseUrl}/rest/v1/user_profiles?on_conflict=email');
-      final body = jsonEncode({
-        'email': email,
+      await client.from('user_profiles').upsert({
+        'user_id': auth.currentUser!.id,
         'name': profile.name,
         'current_level': profile.currentLevel,
         'target_goal': profile.targetGoal,
@@ -42,66 +40,49 @@ class CloudSyncService {
         'evaluation_scores': profile.evaluationScores,
         'master_exam_score': profile.masterExamScore,
         'is_certified': profile.isCertified,
-        'is_premium': profile.isPremium,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-
-      final headers = Map<String, String>.from(_supabaseHeaders);
-      headers['Prefer'] = 'resolution=merge-duplicates';
-
-      final response = await http.post(url, headers: headers, body: body);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        await StorageService.saveLastBackupDate(DateTime.now());
-        debugPrint("✅ Cloud sync success for $email (${profile.xp} XP, Level ${profile.currentLevel})");
-        return true;
-      } else {
-        debugPrint("❌ Cloud sync failed: ${response.statusCode} - ${response.body}");
-        return false;
-      }
+      }, onConflict: 'user_id');
+      await StorageService.saveLastBackupDate(DateTime.now());
+      debugPrint("✅ Cloud sync success (${profile.xp} XP, Level ${profile.currentLevel})");
+      return true;
     } catch (e) {
-      debugPrint("❌ Cloud sync network error: $e");
+      debugPrint("❌ Cloud sync error: $e");
       return false;
     }
   }
 
-  /// Restaure un profil depuis Supabase Cloud en utilisant l'email
-  Future<UserProfile?> fetchProfileFromSupabase(String rawEmail) async {
-    final email = rawEmail.trim().toLowerCase();
-    if (email.isEmpty || !email.contains('@')) return null;
+  /// À appeler juste après la vérification du code email : reprend un éventuel
+  /// ancien profil, le fusionne avec la progression locale et sauvegarde le tout.
+  Future<UserProfile?> pullAndMergeAfterSignIn() async {
+    final auth = AuthService();
+    final client = auth.client;
+    final email = auth.verifiedEmail;
+    if (client == null || email == null) return null;
 
     try {
-      final encodedEmail = Uri.encodeComponent(email);
-      final url = Uri.parse('${AppConfig.supabaseUrl}/rest/v1/user_profiles?email=eq.$encodedEmail&select=*');
+      // Reprend une ligne créée par une ancienne version (repérée par l'email).
+      await client.rpc('claim_legacy_profile');
 
-      final response = await http.get(url, headers: _supabaseHeaders);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          final row = Map<String, dynamic>.from(data.first);
-          final cloudProfile = fromSupabaseRow(row);
-          final localProfile = StorageService.getUserProfile();
+      final row = await client
+          .from('user_profiles')
+          .select()
+          .eq('user_id', auth.currentUser!.id)
+          .maybeSingle();
 
-          // Fusion intelligente pour protéger l'apprenant contre toute perte
-          final merged = mergeProfiles(localProfile, cloudProfile);
+      final localProfile = StorageService.getUserProfile();
+      final merged = row == null
+          ? localProfile.copyWith(email: email, isEmailVerified: true)
+          : mergeProfiles(localProfile, fromSupabaseRow(row))
+              .copyWith(email: email, isEmailVerified: true);
 
-          // Sauvegarde locale Hive
-          await StorageService.saveUserProfile(merged);
-          await StorageService.setOnboardingCompleted(true);
-          await StorageService.saveLastBackupDate(DateTime.now());
-          
-          // Mettre à jour le cloud avec la version fusionnée la plus riche
-          syncProfileToSupabase(merged);
-          
-          debugPrint("✅ Profile successfully restored and merged for: ${merged.name}");
-          return merged;
-        }
-      } else {
-        debugPrint("❌ Supabase fetch failed: ${response.statusCode} - ${response.body}");
-      }
+      await StorageService.saveUserProfile(merged);
+      await StorageService.setOnboardingCompleted(true);
+      await syncProfileToSupabase(merged);
+      debugPrint("✅ Profile restored and merged for: ${merged.name}");
+      return merged;
     } catch (e) {
-      debugPrint("❌ Supabase fetch error: $e");
+      debugPrint("❌ Supabase restore error: $e");
+      return null;
     }
-    return null;
   }
 
   /// Fusionne intelligemment un profil local et un profil cloud pour ne JAMAIS perdre de progrès.

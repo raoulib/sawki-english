@@ -8,6 +8,7 @@ import '../services/stt_service.dart';
 import '../services/gemini_service.dart';
 import '../services/ad_service.dart';
 import '../services/cloud_sync_service.dart';
+import '../services/auth_service.dart';
 import '../config/monetization_config.dart';
 
 class ChatMessage {
@@ -29,7 +30,6 @@ class ChatMessage {
 class AppStateProvider extends ChangeNotifier {
   late UserProfile _profile;
   List<MistakeItem> _mistakes = [];
-  String _apiKey = '';
 
   // État audio & micro
   bool _isListening = false;
@@ -47,7 +47,6 @@ class AppStateProvider extends ChangeNotifier {
   // Getters
   UserProfile get profile => _profile;
   List<MistakeItem> get mistakes => _mistakes;
-  String get apiKey => _apiKey;
   bool get isListening => _isListening;
   double get soundLevel => _soundLevel;
   String get liveTranscription => _liveTranscription;
@@ -59,7 +58,14 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> init() async {
     _profile = StorageService.getUserProfile();
     _mistakes = StorageService.getMistakes();
-    _apiKey = StorageService.getApiKey() ?? '';
+    await StorageService.clearLegacyApiKey();
+
+    // Les anciennes versions marquaient l'email comme « vérifié » sans envoyer
+    // de code. Sans session Supabase vérifiée, on redemande la vérification.
+    if (_profile.isEmailVerified && AuthService().verifiedEmail == null) {
+      _profile = _profile.copyWith(isEmailVerified: false);
+      await StorageService.saveUserProfile(_profile);
+    }
 
     final savedTheme = StorageService.getThemeMode();
     if (savedTheme == 'light') {
@@ -96,7 +102,6 @@ class AppStateProvider extends ChangeNotifier {
   Future<void> refreshProfile() async {
     _profile = StorageService.getUserProfile();
     _mistakes = StorageService.getMistakes();
-    _apiKey = StorageService.getApiKey() ?? '';
     await _checkDailyEnergyAndStreak();
     notifyListeners();
   }
@@ -203,18 +208,40 @@ class AppStateProvider extends ChangeNotifier {
     return false;
   }
 
-  /// Restaure un profil directement depuis Supabase Cloud avec l'adresse email
-  Future<bool> restoreFromCloudEmail(String email) async {
-    final restored = await CloudSyncService().fetchProfileFromSupabase(email);
-    if (restored != null) {
-      _profile = restored;
-      _mistakes = StorageService.getMistakes();
-      await StorageService.saveUserProfile(_profile);
-      await StorageService.setOnboardingCompleted(true);
-      notifyListeners();
-      return true;
+  /// Envoie un code de vérification à 6 chiffres à cette adresse email.
+  Future<bool> sendEmailCode(String email) => AuthService().sendEmailCode(email);
+
+  /// Vérifie le code reçu par email, puis récupère et fusionne la progression
+  /// sauvegardée sur le cloud (ancienne ou actuelle) avec celle de cet appareil.
+  Future<EmailCodeResult> verifyEmailCodeAndRestore(String email, String code) async {
+    final result = await AuthService().verifyEmailCode(email, code);
+    if (result != EmailCodeResult.success) return result;
+
+    final merged = await CloudSyncService().pullAndMergeAfterSignIn();
+    if (merged == null) return EmailCodeResult.networkError;
+
+    _profile = merged;
+    _mistakes = StorageService.getMistakes();
+    notifyListeners();
+    return EmailCodeResult.success;
+  }
+
+  /// Supprime définitivement le compte cloud puis les données de cet appareil.
+  Future<bool> deleteAccount() async {
+    final auth = AuthService();
+    if (auth.currentUser != null) {
+      // Supprime aussi les sessions anonymes et leur compteur d'usage IA.
+      final ok = await auth.deleteAccount();
+      // Un compte avec email vérifié doit être supprimé côté serveur avant
+      // d'effacer le téléphone ; pour une session anonyme, on efface quand même.
+      if (!ok && auth.verifiedEmail != null) return false;
     }
-    return false;
+    await StorageService.resetAllData();
+    _profile = StorageService.getUserProfile();
+    _mistakes = [];
+    _messages.clear();
+    notifyListeners();
+    return true;
   }
 
   /// Force la synchronisation immédiate avec Supabase Cloud
@@ -226,6 +253,11 @@ class AppStateProvider extends ChangeNotifier {
 
   /// Déconnecte le compte et efface les données locales de cet appareil
   Future<void> logoutAndReset() async {
+    // On garde la session anonyme de l'appareil : la quitter remettrait à zéro
+    // la limite quotidienne de l'IA. Seule une session avec email est fermée.
+    if (AuthService().verifiedEmail != null) {
+      await AuthService().signOut();
+    }
     await StorageService.resetAllData();
     _profile = StorageService.getUserProfile();
     _mistakes = [];
@@ -233,11 +265,6 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setApiKey(String key) async {
-    _apiKey = key.trim();
-    await StorageService.saveApiKey(_apiKey);
-    notifyListeners();
-  }
 
   // --- ENREGISTREMENT VOCAL (STT BILINGUE US/FR) ---
   void toggleSttLocale() {
@@ -346,7 +373,6 @@ class AppStateProvider extends ChangeNotifier {
     final response = await GeminiService.sendMessage(
       userMessage: trimmed,
       userLevel: _profile.currentLevel,
-      apiKey: _apiKey,
       conversationHistory: history,
     );
 
@@ -463,17 +489,6 @@ class AppStateProvider extends ChangeNotifier {
     _profile = _profile.copyWith(xp: _profile.xp + amount);
     await StorageService.saveUserProfile(_profile);
     CloudSyncService().syncProfileToSupabase(_profile);
-    notifyListeners();
-  }
-
-  // --- ENREGISTREMENT ET VÉRIFICATION D'EMAIL ---
-  Future<void> saveUserEmail(String email, {bool isVerified = true}) async {
-    _profile = _profile.copyWith(
-      email: email.trim(),
-      isEmailVerified: isVerified,
-    );
-    await StorageService.saveUserProfile(_profile);
-    await CloudSyncService().syncProfileToSupabase(_profile);
     notifyListeners();
   }
 

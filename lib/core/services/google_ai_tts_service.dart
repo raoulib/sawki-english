@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import '../config/app_config.dart';
-import 'storage_service.dart';
+import 'auth_service.dart';
 
 /// Service de synthèse vocale haute fidélité utilisant l'API Google AI Studio (Gemini TTS).
 /// Produit une voix humaine américaine naturelle (voix Aoede) à 24kHz.
@@ -19,11 +17,8 @@ class GoogleAiTtsService {
 
   bool get isPlaying => _isPlaying;
 
-  /// Modèle Gemini TTS officiel supportant la synthèse vocale neuronale humaine
-  static const String _ttsModel = 'gemini-2.5-flash-preview-tts';
-
-  /// Nom de la voix féminine américaine naturelle de Google
-  static const String _voiceName = 'Aoede';
+  // Le modèle (gemini-2.5-flash-preview-tts) et la voix (Aoede) sont choisis
+  // côté serveur, dans la fonction Supabase « gemini ».
 
   Future<void> init() async {
     if (_isInitialized) return;
@@ -70,65 +65,26 @@ class GoogleAiTtsService {
     }
   }
 
+  /// Récupère l'audio via la fonction Supabase « gemini » (la clé reste sur le serveur).
   Future<Uint8List?> _fetchGoogleAiAudio(String text) async {
     try {
-      final userKey = StorageService.getApiKey();
-      final apiKey = (userKey != null && userKey.trim().isNotEmpty)
-          ? userKey.trim()
-          : AppConfig.defaultGeminiApiKey.trim();
+      final auth = AuthService();
+      final client = auth.client;
+      if (client == null || !await auth.ensureSession()) return null;
 
-      if (apiKey.isEmpty) return null;
+      final res = await client.functions
+          .invoke('gemini', body: {'mode': 'tts', 'text': text})
+          .timeout(const Duration(seconds: 10));
 
-      final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$_ttsModel:generateContent?key=$apiKey',
-      );
-
-      final body = jsonEncode({
-        "contents": [
-          {
-            "parts": [
-              {"text": text}
-            ]
-          }
-        ],
-        "generationConfig": {
-          "responseModalities": ["AUDIO"],
-          "speechConfig": {
-            "voiceConfig": {
-              "prebuiltVoiceConfig": {
-                "voiceName": _voiceName,
-              }
-            }
-          }
+      final data = res.data;
+      if (res.status == 200 && data is Map) {
+        final base64Audio = data['audio'] as String?;
+        if (base64Audio != null && base64Audio.isNotEmpty) {
+          final pcmBytes = base64Decode(base64Audio);
+          return buildWavHeader(pcmBytes, sampleRate: 24000);
         }
-      });
-
-      final response = await http
-          .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: body,
-          )
-          .timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final candidates = data['candidates'] as List?;
-        if (candidates != null && candidates.isNotEmpty) {
-          final content = candidates[0]['content'];
-          final parts = content?['parts'] as List?;
-          if (parts != null && parts.isNotEmpty) {
-            final inlineData = parts[0]['inlineData'];
-            final base64Audio = inlineData?['data'] as String?;
-            if (base64Audio != null && base64Audio.isNotEmpty) {
-              final pcmBytes = base64Decode(base64Audio);
-              return buildWavHeader(pcmBytes, sampleRate: 24000);
-            }
-          }
-        }
-      } else {
-        debugPrint("Google AI TTS error code: ${response.statusCode}");
       }
+      debugPrint("Google AI TTS function status: ${res.status}");
     } catch (e) {
       debugPrint("Google AI TTS fetch failed: $e");
     }

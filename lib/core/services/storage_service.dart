@@ -104,15 +104,11 @@ class StorageService {
     }
   }
 
-  // --- CLÉ API GEMINI & PARAMÈTRES ---
-  static String? getApiKey() {
+  // --- PARAMÈTRES ---
+  /// Efface une éventuelle clé API Gemini enregistrée par une ancienne version.
+  static Future<void> clearLegacyApiKey() async {
     final box = Hive.box(_settingsBoxName);
-    return box.get('gemini_api_key');
-  }
-
-  static Future<void> saveApiKey(String apiKey) async {
-    final box = Hive.box(_settingsBoxName);
-    await box.put('gemini_api_key', apiKey.trim());
+    await box.delete('gemini_api_key');
   }
 
   /// L'utilisateur a confirmé avoir 18 ans ou plus.
