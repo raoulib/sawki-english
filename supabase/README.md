@@ -34,9 +34,13 @@ Prérequis : [Supabase CLI](https://supabase.com/docs/guides/cli) installé, pui
 | `CHAT_DAILY_LIMIT_PREMIUM` | 200 | Messages par jour (Premium) |
 | `TTS_DAILY_LIMIT` | 100 | Phrases lues par la voix IA par jour (gratuit) |
 | `TTS_DAILY_LIMIT_PREMIUM` | 400 | Idem (Premium) |
+| `GLOBAL_CHAT_DAILY_LIMIT` | 0 (désactivé) | Plafond de messages par jour, tous utilisateurs confondus |
+| `GLOBAL_TTS_DAILY_LIMIT` | 0 (désactivé) | Idem pour la voix |
 | `GEMINI_CHAT_MODELS` | `gemini-3.6-flash,gemini-flash-latest` | Modèles essayés dans l'ordre |
 | `GEMINI_TTS_MODEL` | `gemini-2.5-flash-preview-tts` | Modèle de voix |
 | `GEMINI_TTS_VOICE` | `Aoede` | Voix |
+
+Chaque appareil reçoit une session anonyme ; quelqu'un qui en créerait beaucoup pourrait multiplier sa limite quotidienne. Garde-fous : la limite de création de sessions anonymes de Supabase (Authentication › Rate Limits, à garder basse), le plafond global ci-dessus et le plafond de dépenses Google Cloud. Activer aussi le CAPTCHA de Supabase Auth si des abus apparaissent.
 
 Le statut Premium (`is_premium`) ne peut être modifié que depuis le serveur (Dashboard ou clé service_role), jamais par l'application.
 

@@ -29,19 +29,33 @@ const LIMITS = {
   tts: { free: intEnv("TTS_DAILY_LIMIT", 100), premium: intEnv("TTS_DAILY_LIMIT_PREMIUM", 400) },
 };
 
+// Plafond global (tous utilisateurs confondus) par jour et par type, 0 = désactivé.
+// Filet de sécurité si quelqu'un crée des sessions anonymes en masse.
+const GLOBAL_DAILY_LIMIT = {
+  chat: intEnv("GLOBAL_CHAT_DAILY_LIMIT", 0),
+  tts: intEnv("GLOBAL_TTS_DAILY_LIMIT", 0),
+};
+
 const MAX_MESSAGE_CHARS = 1000;
 const MAX_TTS_CHARS = 600;
 const LEVELS = new Set(["A0", "A1", "A2", "B1", "B2", "C1"]);
 
 function intEnv(name: string, fallback: number): number {
   const v = Number.parseInt(Deno.env.get(name) ?? "", 10);
-  return Number.isFinite(v) && v > 0 ? v : fallback;
+  return Number.isFinite(v) && v >= 0 ? v : fallback;
 }
+
+// En-têtes CORS : nécessaires pour la version web de l'application.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json; charset=utf-8" },
   });
 }
 
@@ -163,6 +177,7 @@ async function handleTts(payload: any): Promise<Response> {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!GEMINI_API_KEY) return json({ error: "server_not_configured" }, 500);
 
@@ -192,6 +207,7 @@ Deno.serve(async (req) => {
     p_user: user.id,
     p_kind: mode,
     p_limit: limit,
+    p_global_limit: GLOBAL_DAILY_LIMIT[mode],
   });
   if (quotaError) {
     console.error(`Quota error: ${quotaError.message}`);

@@ -149,8 +149,18 @@ create table if not exists public.ai_usage (
 alter table public.ai_usage enable row level security;
 revoke all on public.ai_usage from anon, authenticated;
 
+create index if not exists ai_usage_day_kind_idx on public.ai_usage (day, kind);
+
 -- Appelée uniquement par la fonction serveur « gemini » (clé service_role).
-create or replace function public.consume_ai_credit(p_user uuid, p_kind text, p_limit integer)
+-- p_limit : limite par utilisateur. p_global_limit : plafond tous utilisateurs
+-- confondus pour la journée (0 = pas de plafond global).
+drop function if exists public.consume_ai_credit(uuid, text, integer);
+create or replace function public.consume_ai_credit(
+  p_user uuid,
+  p_kind text,
+  p_limit integer,
+  p_global_limit integer default 0
+)
 returns boolean
 language plpgsql
 security definer
@@ -158,7 +168,17 @@ set search_path = public
 as $$
 declare
   v_count integer;
+  v_total bigint;
 begin
+  if p_global_limit > 0 then
+    select coalesce(sum(count), 0) into v_total
+      from public.ai_usage
+     where day = current_date and kind = p_kind;
+    if v_total >= p_global_limit then
+      return false;
+    end if;
+  end if;
+
   insert into public.ai_usage (user_id, day, kind, count)
   values (p_user, current_date, p_kind, 1)
   on conflict (user_id, day, kind)
@@ -168,5 +188,5 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_ai_credit(uuid, text, integer) from public, anon, authenticated;
-grant execute on function public.consume_ai_credit(uuid, text, integer) to service_role;
+revoke all on function public.consume_ai_credit(uuid, text, integer, integer) from public, anon, authenticated;
+grant execute on function public.consume_ai_credit(uuid, text, integer, integer) to service_role;

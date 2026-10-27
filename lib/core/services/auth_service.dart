@@ -103,6 +103,8 @@ class AuthService {
       final res = await c.functions.invoke('delete-account');
       if (res.status == 200) {
         await c.auth.signOut();
+        // Repartir sur une nouvelle session anonyme propre.
+        await ensureSession();
         return true;
       }
       debugPrint('delete-account status: ${res.status}');

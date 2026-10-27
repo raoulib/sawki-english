@@ -228,12 +228,19 @@ class AppStateProvider extends ChangeNotifier {
 
   /// Supprime définitivement le compte cloud puis les données de cet appareil.
   Future<bool> deleteAccount() async {
-    final hasCloudAccount = AuthService().verifiedEmail != null;
-    if (hasCloudAccount) {
-      final ok = await AuthService().deleteAccount();
-      if (!ok) return false;
+    final auth = AuthService();
+    if (auth.currentUser != null) {
+      // Supprime aussi les sessions anonymes et leur compteur d'usage IA.
+      final ok = await auth.deleteAccount();
+      // Un compte avec email vérifié doit être supprimé côté serveur avant
+      // d'effacer le téléphone ; pour une session anonyme, on efface quand même.
+      if (!ok && auth.verifiedEmail != null) return false;
     }
-    await logoutAndReset();
+    await StorageService.resetAllData();
+    _profile = StorageService.getUserProfile();
+    _mistakes = [];
+    _messages.clear();
+    notifyListeners();
     return true;
   }
 
@@ -246,7 +253,11 @@ class AppStateProvider extends ChangeNotifier {
 
   /// Déconnecte le compte et efface les données locales de cet appareil
   Future<void> logoutAndReset() async {
-    await AuthService().signOut();
+    // On garde la session anonyme de l'appareil : la quitter remettrait à zéro
+    // la limite quotidienne de l'IA. Seule une session avec email est fermée.
+    if (AuthService().verifiedEmail != null) {
+      await AuthService().signOut();
+    }
     await StorageService.resetAllData();
     _profile = StorageService.getUserProfile();
     _mistakes = [];
