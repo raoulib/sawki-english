@@ -90,7 +90,7 @@ class HistoryScreen extends StatelessWidget {
 
           // Section 1 : Statut du Grand Examen Master & Certification
           const Text(
-            'Certification Officielle Sawki English',
+            'Attestation de réussite Sawki English',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
@@ -122,7 +122,7 @@ class HistoryScreen extends StatelessWidget {
                     children: [
                       Text(
                         profile.isCertified
-                            ? 'Diplôme Validé (${profile.masterExamScore}%) 🎉'
+                            ? 'Attestation obtenue (${profile.masterExamScore}%) 🎉'
                             : (profile.masterExamScore != null
                                 ? 'Dernier score : ${profile.masterExamScore}% (Seuil 80%)'
                                 : 'Grand Examen non encore passé'),
@@ -153,7 +153,7 @@ class HistoryScreen extends StatelessWidget {
                         );
                       },
                       icon: const Icon(Icons.download, size: 15),
-                      label: const Text('Diplôme', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text('Attestation', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.amber.shade700,
                         foregroundColor: Colors.white,

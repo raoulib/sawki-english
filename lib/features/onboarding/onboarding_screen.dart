@@ -17,6 +17,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
 
   final TextEditingController _nameController = TextEditingController();
+  bool _ageConfirmed = false;
+
+  /// Sawki English est réservée aux 18 ans et plus (conditions de l'API Gemini).
+  bool _checkAgeConfirmed() {
+    if (_ageConfirmed) {
+      StorageService.setAgeConfirmed();
+      return true;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Veuillez confirmer que vous avez 18 ans ou plus.')),
+    );
+    return false;
+  }
   String _selectedGoal = 'Parler avec fluidité & confiance';
   String _selectedLevel = 'A0';
 
@@ -43,6 +56,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
       return;
     }
+    if (_currentPage == 0 && !_checkAgeConfirmed()) return;
     if (_currentPage < 2) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -393,12 +407,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          CheckboxListTile(
+            value: _ageConfirmed,
+            onChanged: (v) => setState(() => _ageConfirmed = v ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            activeColor: AppColors.primary,
+            title: const Text(
+              'J\'ai 18 ans ou plus et j\'accepte la politique de confidentialité (Réglages › Confidentialité).',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ),
+          const SizedBox(height: 16),
           Center(
             child: Column(
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => _showEmailRestoreDialog(context),
+                  onPressed: () {
+                    if (_checkAgeConfirmed()) _showEmailRestoreDialog(context);
+                  },
                   icon: const Icon(Icons.cloud_download, color: AppColors.primary, size: 18),
                   label: const Text(
                     'Déjà un compte ? Récupérer par Email',
@@ -416,7 +444,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () => _showRestoreDialog(context),
+                  onPressed: () {
+                    if (_checkAgeConfirmed()) _showRestoreDialog(context);
+                  },
                   child: const Text(
                     'Ou restaurer avec une Clé Sawki',
                     style: TextStyle(
