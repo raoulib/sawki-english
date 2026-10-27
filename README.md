@@ -81,5 +81,5 @@ flutter build appbundle --release \
 
 **Sawki Technologie 2IM**  
 Fondateur : Ibrahim Moudy Ibrahima  
-Contact : `contact@sawkigroup.com`  
+Contact : `sawkienglish@gmail.com`  
 Copyright © 2026 Sawki Technologie 2IM. Tous droits réservés.

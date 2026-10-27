@@ -192,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Droits d\'accès, de rectification et d\'effacement : écrivez à contact@sawkigroup.com. La déconnexion efface les données de ce téléphone uniquement.',
+                  'Droits d\'accès, de rectification et d\'effacement : écrivez à sawkienglish@gmail.com. La déconnexion efface les données de ce téléphone uniquement.',
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
               ],
