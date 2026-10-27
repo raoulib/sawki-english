@@ -192,11 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-<<<<<<< HEAD
                   'Droits d\'accès, de rectification et d\'effacement : sawkienglish@gmail.com. « Supprimer mon compte » (en bas de cette page) efface votre sauvegarde cloud ; la déconnexion efface seulement ce téléphone.',
-=======
-                  'Droits d\'accès, de rectification et d\'effacement : écrivez à sawkienglish@gmail.com. La déconnexion efface les données de ce téléphone uniquement.',
->>>>>>> fix/audit-securite-conformite
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
               ],
