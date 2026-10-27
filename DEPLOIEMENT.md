@@ -4,7 +4,7 @@ Ce document s'adresse à l'agent qui déploie Sawki English. Lis-le en entier av
 
 ## Contexte
 
-- Application Flutter (Android d'abord) éditée par Sawki Technologies 2IM.
+- Application Flutter (Android d'abord) éditée par Sawki Technologie 2IM.
 - Dépôt : `raoulib/sawki-english`. Les corrections de sécurité sont dans deux PR, à fusionner dans l'ordre : #1 (application), puis #2 (serveur Supabase).
 - Projet Supabase de production : référence `bkptrqfcnbnlodzyvrjs`.
 - Version de Flutter attendue : 3.41.9 (Dart 3.11.5).
