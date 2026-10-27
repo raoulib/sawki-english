@@ -229,7 +229,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
 
-            // Pied de page officiel Sawki Technologies 2IM
+            // Pied de page officiel Sawki Technologie 2IM
             Positioned(
               bottom: 24,
               left: 0,

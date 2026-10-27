@@ -655,7 +655,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
             ],
           ),
           const SizedBox(height: 28),
-          // Footer Copyright Sawki Technologies 2IM
+          // Footer Copyright Sawki Technologie 2IM
           Center(
             child: Column(
               children: [
