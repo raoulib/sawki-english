@@ -16,20 +16,20 @@ class _PremiumScreenState extends State<PremiumScreen> {
     {
       'id': 'sawki_premium_annual',
       'title': 'Abonnement Annuel',
-      'price': '29,99 € / an',
-      'subprice': 'Soit seulement 2,49 € / mois',
-      'badge': '🔥 ÉCONOMISEZ 50%',
+      'price': 'Bientôt',
+      'subprice': 'Prix annoncé au lancement, dans votre devise',
+      'badge': 'RECOMMANDÉ',
       'isBest': true,
-      'billingPeriod': 'Facturé 29,99 € tous les 12 mois',
+      'billingPeriod': 'Facturé une fois par an via Google Play',
     },
     {
       'id': 'sawki_premium_monthly',
       'title': 'Abonnement Mensuel',
-      'price': '4,99 € / mois',
+      'price': 'Bientôt',
       'subprice': 'Sans engagement, annulable à tout moment',
       'badge': null,
       'isBest': false,
-      'billingPeriod': 'Facturé 4,99 € chaque mois',
+      'billingPeriod': 'Facturé chaque mois via Google Play',
     },
   ];
 
@@ -51,8 +51,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
     },
     {
       'icon': Icons.workspace_premium,
-      'title': 'Certification Officielle',
-      'desc': 'Grand Examen Final illimité avec diplôme téléchargeable et partageable.',
+      'title': 'Attestation de réussite',
+      'desc': 'Grand examen final illimité avec attestation téléchargeable et partageable.',
     },
   ];
 

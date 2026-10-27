@@ -44,11 +44,26 @@ void main() {
       expect(restored.masterExamScore, 92);
       expect(restored.isCertified, true);
       expect(restored.email, 'moudi@sawkigroup.com');
-      expect(restored.isEmailVerified, true);
+      // Une clé ne peut pas prouver qu'un email a été vérifié
+      expect(restored.isEmailVerified, false);
 
       // Verify invalid key handling
       expect(CloudSyncService.parseRecoveryKey('SAWKI-INVALID-KEY'), isNull);
       expect(CloudSyncService.parseRecoveryKey(''), isNull);
+    });
+
+    test('Recovery key never grants Premium or extra AI credits', () {
+      final forged = UserProfile(
+        name: 'Faussaire',
+        isPremium: true,
+        energyCredits: 999,
+      );
+      final key = CloudSyncService.generateRecoveryKey(forged);
+      final restored = CloudSyncService.parseRecoveryKey(key);
+      expect(restored, isNotNull);
+      expect(restored!.isPremium, false);
+      expect(restored.energyCredits,
+          lessThanOrEqualTo(MonetizationConfig.dailyFreeEnergyBase));
     });
 
     test('CloudSyncService Supabase row parsing roundtrip', () {

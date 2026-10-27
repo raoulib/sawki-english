@@ -259,7 +259,7 @@ class _MasterExamScreenState extends State<MasterExamScreen> {
                     );
                   },
                   icon: const Icon(Icons.workspace_premium),
-                  label: const Text('Voir mon Diplôme Officiel 🏆'),
+                  label: const Text('Voir mon attestation 🏆'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFD4AF37),
                     foregroundColor: Colors.black87,
