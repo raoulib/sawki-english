@@ -1,5 +1,5 @@
 name: sawki_english
-description: "Sawki English — Application d'apprentissage de l'anglais américain avec tuteur IA, de A0 à C1. Par Sawki Group."
+description: "Sawki English — Application d'apprentissage de l'anglais américain avec tuteur IA, de A0 à C1. Par Sawki Technologies 2IM."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

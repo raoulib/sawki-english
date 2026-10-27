@@ -26,9 +26,9 @@ class AppConfig {
   static const String appVersion = '1.0.0';
 
   /// Éditeur & Copyright
-  static const String organization = 'Sawki Group';
-  static const String copyright = '© 2026 Sawki Group. Tous droits réservés.';
-  static const String poweredBy = 'Propulsé par Sawki Group';
+  static const String organization = 'Sawki Technologies 2IM';
+  static const String copyright = '© 2026 Sawki Technologies 2IM. Tous droits réservés.';
+  static const String poweredBy = 'Propulsé par Sawki Technologies 2IM';
 
   /// URL publique officielle de la politique de confidentialité (Google Play Store)
   static const String privacyPolicyUrl =

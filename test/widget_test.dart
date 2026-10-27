@@ -243,11 +243,11 @@ void main() {
       expect(tts.isMainlyFrench("I only stayed there for one night."), false);
     });
 
-    test('Sawki Group copyright and branding metadata', () {
-      expect(AppConfig.organization, 'Sawki Group');
-      expect(AppConfig.copyright.contains('Sawki Group'), true);
+    test('Sawki Technologies 2IM copyright and branding metadata', () {
+      expect(AppConfig.organization, 'Sawki Technologies 2IM');
+      expect(AppConfig.copyright.contains('Sawki Technologies 2IM'), true);
       expect(AppConfig.copyright.contains('2026'), true);
-      expect(AppConfig.poweredBy.contains('Sawki Group'), true);
+      expect(AppConfig.poweredBy.contains('Sawki Technologies 2IM'), true);
     });
 
     test('Google AI TTS 44-byte WAV header generator from 24kHz PCM', () {
