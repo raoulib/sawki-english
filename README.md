@@ -27,9 +27,9 @@
 - **Cursus 120 Leçons (A0 à C1) :** 6 paliers d'apprentissage progressif avec 20 leçons structurées par niveau (vocabulaire, grammaire, dictées et mise en situation).
 - **Tuteur Vocal IA Sarah (Gemini 3.6 Flash) :** Conversation bilingue en temps réel avec correction bienveillante, explications pédagogiques en français et moteur de secours hors-ligne.
 - **Atelier de Prononciation & Dictée :** Évaluation fine au microphone (Speech-to-Text) avec feedback phonétique instantané.
-- **Grand Examen de Maîtrise & Certification :** 30 questions de haut niveau avec délivrance d'un Diplôme officiel Sawki partageable.
+- **Grand Examen Final :** 30 questions de haut niveau et une attestation de réussite Sawki English partageable.
 - **Mode Sombre & Clair :** Interface soignée avec boutons 3D tactiles et contraste optimisé pour un confort de lecture optimal.
-- **Synchronisation Cloud & Clé Sawki :** Sauvegarde sécurisée chiffrée via Supabase et clé de restauration portative.
+- **Synchronisation Cloud & Clé Sawki :** Sauvegarde Supabase après vérification de l'email par code, et clé de restauration portative.
 
 ---
 
@@ -40,8 +40,8 @@
 | **Framework** | [Flutter](https://flutter.dev) (SDK ^3.11.5) |
 | **Langage** | [Dart](https://dart.dev) |
 | **State Management** | Provider |
-| **Persistance Locale** | Hive (Boxes chiffrées & indexées) |
-| **Cloud Sync** | Supabase REST API (TLS chiffré) |
+| **Persistance Locale** | Hive |
+| **Cloud Sync** | Supabase (Auth par code email, règles RLS, Edge Functions) |
 | **Intelligence Artificielle** | Google Gemini 3.6 Flash API |
 | **Synthèse Vocale (TTS)** | Google Cloud Text-to-Speech & Flutter TTS |
 | **Reconnaissance Vocale** | Speech-to-Text Android natif |
@@ -59,21 +59,19 @@ Sawki English respecte la vie privée de ses utilisateurs :
 
 ## 🚀 Compilation & Lancement
 
-### Lancer en mode développement avec injection des clés :
+### Lancer en mode développement
 ```bash
-flutter run \
-  --dart-define=GEMINI_API_KEY=votre_cle_gemini \
-  --dart-define=SUPABASE_URL=votre_url_supabase \
-  --dart-define=SUPABASE_ANON_KEY=votre_cle_anon_supabase
+flutter run
 ```
+L'URL Supabase et la clé publique ont des valeurs par défaut dans `lib/core/config/app_config.dart` (elles peuvent être remplacées avec `--dart-define=SUPABASE_URL=...` et `--dart-define=SUPABASE_ANON_KEY=...`).
+
+**Aucune clé Gemini dans l'application** : elle est stockée comme secret de la fonction Supabase `gemini`. Voir [supabase/README.md](supabase/README.md) pour le déploiement du serveur.
 
 ### Compiler le bundle pour le Google Play Store :
 ```bash
-flutter build appbundle --release \
-  --dart-define=GEMINI_API_KEY=... \
-  --dart-define=SUPABASE_URL=... \
-  --dart-define=SUPABASE_ANON_KEY=...
+flutter build appbundle --release
 ```
+La compilation release exige `android/key.properties` (voir `android/key.properties.template`).
 
 ---
 

@@ -28,7 +28,8 @@
         <ul>
             <li><strong>Prénom ou pseudo</strong> et <strong>objectif d'apprentissage</strong> — pour personnaliser l'application.</li>
             <li><strong>Données d'apprentissage</strong> — niveau, leçons terminées, XP, série de jours, scores, erreurs fréquentes.</li>
-            <li><strong>Adresse email</strong> (facultative) — uniquement si vous activez la sauvegarde cloud.</li>
+            <li><strong>Adresse email</strong> (facultative) — uniquement si vous activez la sauvegarde cloud. Elle est vérifiée par un code envoyé par email.</li>
+            <li><strong>Identifiant technique</strong> — un identifiant de session Supabase créé au premier lancement, et le nombre de messages au tuteur par jour, pour appliquer la limite quotidienne.</li>
             <li><strong>Nom complet</strong> (facultatif) — uniquement si vous générez une attestation de réussite. Il reste sur votre téléphone.</li>
             <li><strong>Messages au tuteur IA</strong> — le texte que vous écrivez ou dictez au tuteur Sarah.</li>
             <li><strong>Identifiant publicitaire</strong> de l'appareil — utilisé par Google AdMob (voir section 5).</li>
@@ -41,8 +42,8 @@
         <h2>4. Où vont vos données</h2>
         <ul>
             <li><strong>Sur votre téléphone</strong> : profil, progression, erreurs et réglages sont stockés localement. Ils ne sont pas chiffrés par l'application ; ils sont protégés par le système de votre téléphone.</li>
-            <li><strong>Google (API Gemini)</strong> : le texte de vos messages au tuteur, votre niveau et les derniers échanges sont envoyés à Google pour générer les réponses, les corrections et la voix de synthèse. Voir les <a href="https://ai.google.dev/gemini-api/terms">conditions de l'API Gemini</a>.</li>
-            <li><strong>Supabase</strong> (si vous activez la sauvegarde cloud) : email, prénom, niveau, objectif, XP, série, leçons terminées, scores et statut d'abonnement. Hébergement : [À COMPLÉTER : région du projet Supabase].</li>
+            <li><strong>Google (API Gemini)</strong> : le texte de vos messages au tuteur, votre niveau et les derniers échanges transitent par notre serveur Supabase puis sont envoyés à Google pour générer les réponses, les corrections et la voix de synthèse. Voir les <a href="https://ai.google.dev/gemini-api/terms">conditions de l'API Gemini</a>.</li>
+            <li><strong>Supabase</strong> : identifiant de session et compteur d'usage du tuteur ; et, si vous activez la sauvegarde cloud, email, prénom, niveau, objectif, XP, série, leçons terminées, scores et statut d'abonnement. Chaque compte n'a accès qu'à ses propres données. Hébergement : [À COMPLÉTER : région du projet Supabase].</li>
             <li><strong>Google AdMob</strong> : affiche des vidéos publicitaires récompensées et utilise l'identifiant publicitaire de l'appareil.</li>
         </ul>
         <p>Nous ne vendons pas vos données personnelles.</p>
@@ -59,11 +60,12 @@
         <h2>8. Durée de conservation</h2>
         <ul>
             <li>Données locales : jusqu'à la déconnexion ou la désinstallation de l'application.</li>
-            <li>Sauvegarde cloud : tant que la sauvegarde est active, puis supprimée dans un délai de 30 jours après votre demande de suppression.</li>
+            <li>Sauvegarde cloud : tant que le compte existe. La suppression depuis l'application est immédiate ; une demande par email est traitée dans un délai de 30 jours.</li>
+            <li>Compteur d'usage du tuteur : supprimé avec le compte.</li>
         </ul>
 
         <h2>9. Vos droits et suppression du compte</h2>
-        <p>Vous pouvez demander l'accès, la rectification, la portabilité ou la suppression de vos données. Pour supprimer votre sauvegarde cloud, écrivez à <a href="mailto:contact@sawkigroup.com?subject=Suppression%20de%20mes%20donn%C3%A9es%20Sawki%20English">contact@sawkigroup.com</a> avec l'objet « Suppression de mes données Sawki English », depuis l'adresse email liée à votre sauvegarde. La déconnexion dans l'application efface les données de votre téléphone uniquement.</p>
+        <p>Vous pouvez demander l'accès, la rectification, la portabilité ou la suppression de vos données. Pour supprimer votre compte et votre sauvegarde cloud, utilisez Réglages › « Supprimer mon compte et mes données » dans l'application. Si vous n'avez plus accès à l'application, écrivez à <a href="mailto:contact@sawkigroup.com?subject=Suppression%20de%20mes%20donn%C3%A9es%20Sawki%20English">contact@sawkigroup.com</a> avec l'objet « Suppression de mes données Sawki English », depuis l'adresse email liée à votre sauvegarde. La déconnexion dans l'application efface les données de votre téléphone uniquement.</p>
         <p>Si vous résidez dans l'Union européenne, vous pouvez aussi saisir l'autorité de protection des données de votre pays.</p>
 
         <h2>10. Modifications</h2>

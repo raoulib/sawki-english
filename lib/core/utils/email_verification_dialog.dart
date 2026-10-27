@@ -1,31 +1,95 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../providers/app_state_provider.dart';
+import '../services/auth_service.dart';
 
-/// Boîte de dialogue partagée pour l'association et la vérification de l'email
-void showEmailVerificationDialog(BuildContext context, AppStateProvider provider) {
+/// Boîte de dialogue partagée : associer son email ou récupérer son compte.
+///
+/// 1. L'utilisateur saisit son email : Supabase lui envoie un code à 6 chiffres.
+/// 2. Il saisit le code : la session est ouverte, puis la progression cloud est
+///    récupérée et fusionnée avec celle de l'appareil.
+///
+/// Renvoie `true` si l'email a été vérifié et la progression restaurée.
+Future<bool> showEmailVerificationDialog(
+  BuildContext context,
+  AppStateProvider provider, {
+  bool restoreMode = false,
+}) async {
   final emailController = TextEditingController(text: provider.profile.email ?? '');
   final codeController = TextEditingController();
   int step = 1;
-  String generatedCode = '';
+  bool busy = false;
+  String? error;
 
-  showDialog(
+  final result = await showDialog<bool>(
     context: context,
+    barrierDismissible: false,
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setState) {
+          Future<void> onSubmit() async {
+            if (busy) return;
+            final email = emailController.text.trim().toLowerCase();
+            if (step == 1) {
+              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+                setState(() => error = 'Veuillez entrer une adresse email valide.');
+                return;
+              }
+              setState(() {
+                busy = true;
+                error = null;
+              });
+              final sent = await provider.sendEmailCode(email);
+              setState(() {
+                busy = false;
+                if (sent) {
+                  step = 2;
+                } else {
+                  error = 'Envoi impossible. Vérifiez votre connexion ou réessayez dans une minute.';
+                }
+              });
+            } else {
+              final code = codeController.text.trim();
+              if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+                setState(() => error = 'Le code contient 6 chiffres.');
+                return;
+              }
+              setState(() {
+                busy = true;
+                error = null;
+              });
+              final res = await provider.verifyEmailCodeAndRestore(email, code);
+              if (res == EmailCodeResult.success) {
+                if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                return;
+              }
+              setState(() {
+                busy = false;
+                error = res == EmailCodeResult.invalidCode
+                    ? 'Code incorrect ou expiré. Vérifiez votre email ou renvoyez un code.'
+                    : 'Connexion impossible. Vérifiez votre accès à internet.';
+              });
+            }
+          }
+
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Row(
               children: [
                 Icon(
-                  step == 1 ? Icons.email_outlined : Icons.verified_user_outlined,
+                  step == 1
+                      ? (restoreMode ? Icons.cloud_download : Icons.email_outlined)
+                      : Icons.verified_user_outlined,
                   color: AppColors.primary,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  step == 1 ? 'Associer mon Email' : 'Code de Confirmation',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                Expanded(
+                  child: Text(
+                    step == 1
+                        ? (restoreMode ? 'Récupérer mon compte' : 'Associer mon email')
+                        : 'Code de confirmation',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                  ),
                 ),
               ],
             ),
@@ -34,14 +98,18 @@ void showEmailVerificationDialog(BuildContext context, AppStateProvider provider
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (step == 1) ...[
-                  const Text(
-                    'Entrez votre adresse email pour sauvegarder vos progrès, XP et certificats officiels de langue.',
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  Text(
+                    restoreMode
+                        ? 'Entrez l\'email de votre compte. Nous vous envoyons un code pour récupérer vos leçons, XP et niveau.'
+                        : 'Entrez votre email pour sauvegarder vos progrès. Nous vous envoyons un code de confirmation.',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
+                    enabled: !busy,
                     decoration: InputDecoration(
                       labelText: 'Adresse email',
                       hintText: 'exemple@gmail.com',
@@ -50,143 +118,64 @@ void showEmailVerificationDialog(BuildContext context, AppStateProvider provider
                     ),
                   ),
                 ] else ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF93C5FD)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.mark_email_read, color: Color(0xFF1E40AF), size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Email : ${emailController.text.trim()}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1E40AF)),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Code : $generatedCode',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 4,
-                                color: Color(0xFF1E3A8A),
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.auto_fix_high, size: 14),
-                              label: const Text('Remplir', style: TextStyle(fontSize: 12)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1E40AF),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              ),
-                              onPressed: () {
-                                codeController.text = generatedCode;
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  Text(
+                    'Un code à 6 chiffres a été envoyé à ${emailController.text.trim()}. Pensez à regarder dans les spams.',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
                   TextField(
                     controller: codeController,
                     keyboardType: TextInputType.number,
-                    maxLength: 4,
+                    autofillHints: const [AutofillHints.oneTimeCode],
+                    maxLength: 6,
+                    enabled: !busy,
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8),
                     decoration: InputDecoration(
                       labelText: 'Code de vérification',
-                      hintText: '••••',
                       counterText: '',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: busy
+                          ? null
+                          : () => setState(() {
+                                step = 1;
+                                codeController.clear();
+                                error = null;
+                              }),
+                      child: const Text('Changer d\'email ou renvoyer un code'),
+                    ),
+                  ),
+                ],
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
                 ],
               ],
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
+                onPressed: busy ? null : () => Navigator.pop(dialogContext, false),
                 child: const Text('Annuler'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  if (step == 1) {
-                    final email = emailController.text.trim();
-                    if (!email.contains('@') || !email.contains('.')) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          backgroundColor: Colors.red,
-                          content: Text('Veuillez entrer une adresse email valide.'),
-                        ),
-                      );
-                      return;
-                    }
-                    final randomNum = 1000 + (DateTime.now().millisecondsSinceEpoch % 9000);
-                    generatedCode = randomNum.toString();
-
-                    setState(() {
-                      step = 2;
-                    });
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFF1E3A8A),
-                        duration: const Duration(seconds: 8),
-                        content: Row(
-                          children: [
-                            const Icon(Icons.security, color: Colors.amber),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text('Sawki Security : Votre code est $generatedCode'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  } else {
-                    final entered = codeController.text.trim();
-                    if (entered == generatedCode) {
-                      provider.saveUserEmail(emailController.text.trim(), isVerified: true);
-                      Navigator.pop(dialogContext);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          backgroundColor: Color(0xFF16A34A),
-                          content: Text('🎉 Email vérifié avec succès ! Vos données sont sauvegardées.'),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          backgroundColor: Colors.red,
-                          content: Text('Code incorrect. Veuillez réessayer.'),
-                        ),
-                      );
-                    }
-                  }
-                },
+                onPressed: busy ? null : onSubmit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: Text(step == 1 ? 'Recevoir le code' : 'Confirmer'),
+                child: busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(step == 1 ? 'Recevoir le code' : 'Confirmer'),
               ),
             ],
           );
@@ -194,4 +183,22 @@ void showEmailVerificationDialog(BuildContext context, AppStateProvider provider
       );
     },
   );
+
+  emailController.dispose();
+  codeController.dispose();
+
+  final ok = result == true;
+  if (ok && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF16A34A),
+        content: Text(
+          restoreMode
+              ? '🎉 Bon retour ${provider.profile.name} ! Vos progrès (${provider.profile.xp} XP, niveau ${provider.profile.currentLevel}) sont restaurés.'
+              : '🎉 Email vérifié ! Vos progrès sont sauvegardés.',
+        ),
+      ),
+    );
+  }
+  return ok;
 }

@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/services/storage_service.dart';
 import '../home/home_screen.dart';
+import '../../core/utils/email_verification_dialog.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -80,102 +81,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void _showEmailRestoreDialog(BuildContext context) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.cloud_download, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Récupération de compte', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Entrez l\'adresse email de votre ancien compte pour récupérer instantanément vos leçons, XP, certificats et niveau depuis le Cloud Sawki :',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                hintText: 'exemple@gmail.com',
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = controller.text.trim();
-              if (email.isEmpty || !email.contains('@')) return;
-
-              Navigator.pop(dialogCtx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Row(
-                    children: [
-                      SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                      SizedBox(width: 12),
-                      Text('Téléchargement de votre profil Cloud...'),
-                    ],
-                  ),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-
-              final provider = context.read<AppStateProvider>();
-              final success = await provider.restoreFromCloudEmail(email);
-
-              if (success) {
-                await StorageService.setOnboardingCompleted(true);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFF16A34A),
-                      content: Text('🎉 Bon retour ${provider.profile.name} ! Vos progrès (${provider.profile.xp} XP, niveau ${provider.profile.currentLevel}) sont restaurés.'),
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  );
-                }
-              } else {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      backgroundColor: Colors.red,
-                      content: Text('❌ Aucun compte trouvé avec cet email ou pas de connexion.'),
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Récupérer'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _showEmailRestoreDialog(BuildContext context) async {
+    final provider = context.read<AppStateProvider>();
+    final ok = await showEmailVerificationDialog(context, provider, restoreMode: true);
+    if (ok && context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    }
   }
 
   void _showRestoreDialog(BuildContext context) {
