@@ -192,7 +192,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Droits d\'accès, de rectification et d\'effacement : contact@sawkigroup.com. « Supprimer mon compte » (en bas de cette page) efface votre sauvegarde cloud ; la déconnexion efface seulement ce téléphone.',
+<<<<<<< HEAD
+                  'Droits d\'accès, de rectification et d\'effacement : sawkienglish@gmail.com. « Supprimer mon compte » (en bas de cette page) efface votre sauvegarde cloud ; la déconnexion efface seulement ce téléphone.',
+=======
+                  'Droits d\'accès, de rectification et d\'effacement : écrivez à sawkienglish@gmail.com. La déconnexion efface les données de ce téléphone uniquement.',
+>>>>>>> fix/audit-securite-conformite
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
               ],
@@ -371,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               backgroundColor: Colors.red,
-                              content: Text('Suppression impossible pour le moment. Vérifiez votre connexion ou écrivez à contact@sawkigroup.com.'),
+                              content: Text('Suppression impossible pour le moment. Vérifiez votre connexion ou écrivez à sawkienglish@gmail.com.'),
                             ),
                           );
                         }
