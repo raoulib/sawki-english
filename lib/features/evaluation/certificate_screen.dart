@@ -299,7 +299,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path, mimeType: 'image/png', name: fileName)],
-          text: '🎓 $_fullName a terminé le parcours Sawki English (A0 à C1) avec un score de ${widget.profile.masterExamScore ?? 0}% au grand examen final. Attestation n° $_credentialId, délivrée par l\'application Sawki English (Sawki Technologies 2IM).',
+          text: '🎓 $_fullName a terminé le parcours Sawki English (A0 à C1) avec un score de ${widget.profile.masterExamScore ?? 0}% au grand examen final. Attestation n° $_credentialId, délivrée par l\'application Sawki English (Sawki Technologie 2IM).',
           subject: 'Attestation de réussite Sawki English - $_fullName',
         ),
       );
@@ -582,7 +582,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'Sawki English · Sawki Technologies 2IM',
+                                    'Sawki English · Sawki Technologie 2IM',
                                     textAlign: TextAlign.end,
                                     maxLines: 1,
                                     style: TextStyle(
