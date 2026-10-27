@@ -147,8 +147,23 @@ class AdService {
     VoidCallback? onAdClosed,
     VoidCallback? onAdFailed,
   }) async {
-    if (!_adsActive) {
+    // Pubs désactivées volontairement dans la configuration : récompense directe.
+    if (!MonetizationConfig.enableAds) {
       onRewardEarned();
+      return;
+    }
+
+    // Plateforme sans pubs configurées (iOS, web) : pas de récompense gratuite,
+    // sinon les crédits IA seraient illimités.
+    if (!isSupportedPlatform) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Les vidéos récompensées ne sont pas disponibles sur cet appareil. Vos sessions se rechargent chaque jour.'),
+          ),
+        );
+      }
+      if (onAdFailed != null) onAdFailed();
       return;
     }
 
