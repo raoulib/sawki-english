@@ -142,7 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Résumé de la politique de confidentialité de Sawki English (Sawki Group). Version complète : ${AppConfig.privacyPolicyUrl}',
+                  'Résumé de la politique de confidentialité de Sawki English (Sawki Technologies 2IM). Version complète : ${AppConfig.privacyPolicyUrl}',
                   style: TextStyle(fontSize: 13, height: 1.4),
                 ),
                 SizedBox(height: 12),

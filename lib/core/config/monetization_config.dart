@@ -1,5 +1,5 @@
 /// Configuration centralisée de la monétisation pour Sawki English.
-/// Éditeur : Sawki Group (Ibrahim Moudy Ibrahima)
+/// Éditeur : Sawki Technologies 2IM (Ibrahim Moudy Ibrahima)
 /// Référence AdMob : pub-5380251672853075
 /// App ID AdMob : ca-app-pub-5380251672853075~3361823057
 class MonetizationConfig {
