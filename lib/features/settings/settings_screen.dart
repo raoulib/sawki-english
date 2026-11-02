@@ -162,7 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '• Le micro sert à la prononciation et au tuteur IA Sarah. Aucun fichier audio n\'est enregistré par Sawki English.\n• La reconnaissance vocale est assurée par le service de votre téléphone (souvent Google), qui peut traiter l\'audio sur ses serveurs.\n• Le texte de vos messages est envoyé à Google (Gemini) pour générer les réponses et corrections.',
+                  '• Le micro sert à la prononciation et au tuteur IA Sarah. Aucun fichier audio n\'est enregistré par Sawki English.\n• La reconnaissance vocale est assurée par le service de votre téléphone (souvent Google), qui peut traiter l\'audio sur ses serveurs.\n• Le texte de vos messages passe par notre serveur puis est envoyé à Google (Gemini) pour générer les réponses et corrections.',
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
                 SizedBox(height: 10),
@@ -192,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Droits d\'accès, de rectification et d\'effacement : écrivez à sawkienglish@gmail.com. La déconnexion efface les données de ce téléphone uniquement.',
+                  'Droits d\'accès, de rectification et d\'effacement : sawkienglish@gmail.com. « Supprimer mon compte » (en bas de cette page) efface votre sauvegarde cloud ; la déconnexion efface seulement ce téléphone.',
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
               ],
@@ -321,6 +321,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, AppStateProvider provider) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        bool busy = false;
+        return StatefulBuilder(
+          builder: (dialogCtx, setState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.delete_forever, color: Colors.red),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Supprimer mon compte ?',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'Votre sauvegarde cloud (profil, progression, email) et les données de ce téléphone seront supprimées définitivement. Cette action est irréversible.',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: busy ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        setState(() => busy = true);
+                        final ok = await provider.deleteAccount();
+                        if (!dialogCtx.mounted) return;
+                        Navigator.pop(dialogCtx);
+                        if (!context.mounted) return;
+                        if (ok) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                            (route) => false,
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: Colors.red,
+                              content: Text('Suppression impossible pour le moment. Vérifiez votre connexion ou écrivez à sawkienglish@gmail.com.'),
+                            ),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Supprimer définitivement'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -493,102 +565,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showRestoreByEmailDialog(BuildContext context, AppStateProvider provider) {
-    final controller = TextEditingController(text: provider.profile.email ?? '');
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.cloud_download, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Restauration Cloud', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Entrez l\'adresse email de votre compte pour récupérer instantanément toute votre progression depuis le Cloud Sawki :',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                hintText: 'exemple@gmail.com',
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = controller.text.trim();
-              if (email.isEmpty || !email.contains('@')) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    backgroundColor: Colors.red,
-                    content: Text('Veuillez entrer une adresse email valide.'),
-                  ),
-                );
-                return;
-              }
-
-              Navigator.pop(dialogCtx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Row(
-                    children: [
-                      SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                      SizedBox(width: 12),
-                      Text('Recherche de votre compte sur le Cloud...'),
-                    ],
-                  ),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-
-              final success = await provider.restoreFromCloudEmail(email);
-              if (context.mounted) {
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFF16A34A),
-                      content: Text('🎉 Bienvenue ${provider.profile.name} ! Vos données Cloud (${provider.profile.currentLevel} • ${provider.profile.xp} XP) sont restaurées.'),
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      backgroundColor: Colors.red,
-                      content: Text('❌ Aucun profil trouvé avec cet email ou problème de connexion internet.'),
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Télécharger'),
-          ),
-        ],
-      ),
-    );
+    showEmailVerificationDialog(context, provider, restoreMode: true);
   }
 
   @override
@@ -1405,6 +1382,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.3)),
                 ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton(
+              onPressed: () => _showDeleteAccountDialog(context, provider),
+              child: const Text(
+                'Supprimer mon compte et mes données',
+                style: TextStyle(color: Colors.redAccent, fontSize: 12, decoration: TextDecoration.underline),
               ),
             ),
           ),

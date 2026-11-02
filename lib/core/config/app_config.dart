@@ -2,22 +2,12 @@ import 'package:flutter/foundation.dart';
 
 /// Configuration globale de l'application Sawki English.
 ///
-/// ⚠️ SÉCURITÉ : Les clés API sont injectées au build via --dart-define.
-/// Exemple : flutter run --dart-define=GEMINI_API_KEY=votre_cle
-///
-/// Ne JAMAIS committer de clés en dur dans ce fichier.
+/// ⚠️ SÉCURITÉ : aucune clé secrète ne doit figurer dans l'application.
+/// Seules l'URL Supabase et la clé publique (anon / publishable) y sont,
+/// et elles sont faites pour être publiques : la protection vient des règles RLS.
 class AppConfig {
-  /// Clé API Google AI Studio — injectée via --dart-define=GEMINI_API_KEY=...
-  static const String defaultGeminiApiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-    defaultValue: '',
-  );
-
-  /// Vérifie si la clé Gemini est configurée
-  static bool get isGeminiConfigured => defaultGeminiApiKey.isNotEmpty;
-
-  /// Modèle Gemini utilisé par défaut
-  static const String geminiModel = 'gemini-3.6-flash';
+  // La clé Gemini n'est PAS dans l'application : elle est stockée comme secret
+  // de la fonction Supabase « gemini » (voir supabase/README.md).
 
   /// Nom de l'application
   static const String appName = 'Sawki English';
@@ -50,13 +40,8 @@ class AppConfig {
 
   /// Affiche les avertissements de configuration en mode debug
   static void validateConfig() {
-    if (kDebugMode) {
-      if (!isGeminiConfigured) {
-        debugPrint('⚠️ GEMINI_API_KEY non configurée. Utilisez --dart-define=GEMINI_API_KEY=votre_cle');
-      }
-      if (!isSupabaseConfigured) {
-        debugPrint('⚠️ SUPABASE_URL/SUPABASE_ANON_KEY non configurées.');
-      }
+    if (kDebugMode && !isSupabaseConfigured) {
+      debugPrint('⚠️ SUPABASE_URL/SUPABASE_ANON_KEY non configurées.');
     }
   }
 }

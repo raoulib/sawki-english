@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/correction_feedback.dart';
-import '../config/app_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'auth_service.dart';
 
 class GeminiResponse {
   final String replyEn;
@@ -15,13 +14,14 @@ class GeminiResponse {
 }
 
 class GeminiService {
-  static const String _defaultModel = AppConfig.geminiModel;
-
-  /// Analyse le message de l'apprenant et génère une réponse interactive fluide
+  /// Analyse le message de l'apprenant et génère une réponse du tuteur.
+  ///
+  /// L'appel passe par la fonction Supabase « gemini » : la clé Gemini reste sur
+  /// le serveur, qui applique aussi la limite quotidienne. Sans réseau, ou si
+  /// le serveur ne répond pas, le moteur hors-ligne prend le relais.
   static Future<GeminiResponse> sendMessage({
     required String userMessage,
     required String userLevel,
-    required String apiKey,
     List<Map<String, String>>? conversationHistory,
   }) async {
     final cleanInput = userMessage.trim();
@@ -32,160 +32,53 @@ class GeminiService {
       );
     }
 
-    final effectiveApiKey = apiKey.trim().isNotEmpty
-        ? apiKey.trim()
-        : AppConfig.defaultGeminiApiKey.trim();
-
-    // Système prompt d'instruction pédagogique
-    final systemInstruction = '''
-You are "Sarah", a warm, witty, enthusiastic American English coach from Chicago teaching French speakers.
-The student's level is CEFR: $userLevel.
-
-CORE TEACHING INSTRUCTIONS:
-1. Speak in natural, modern American English (idiomatic, friendly, upbeat).
-2. CRITICAL BILINGUAL RULE: When the student speaks in French, asks for a translation, asks for clarification, or says they did not understand (e.g. "peux-tu traduire ?", "je n'ai pas compris", "c'est trop lourd", "en français svp"), YOU MUST reply in FRENCH to translate, explain clearly, and encourage them! Then give the easy American English equivalent to practice and end with a friendly question.
-3. SPELLING, GRAMMAR & PRONUNCIATION CORRECTIONS:
-   - Carefully check the student's message for English spelling typos (e.g. "watter", "alot", "wich"), grammar issues ("I am agree", "he don't"), syntax errors, and phonetic misunderstandings.
-   - Whenever an error is present, set "has_error": true, provide "original_segment", "corrected_segment", "error_type", and "explanation_fr".
-4. Return your output STRICTLY as a single JSON object with these keys:
-{
-  "reply_en": "Your conversational reply. If the user asked in French or needed clarification, explain in FRENCH first then give the English phrase and a question. Otherwise, conversational American English (2-3 sentences max).",
-  "has_error": true/false,
-  "original_segment": "the exact error if any",
-  "corrected_segment": "natural American equivalent",
-  "error_type": "grammar" | "vocabulary" | "syntax" | "spelling" | "pronunciation" | "idiom",
-  "explanation_fr": "Encouraging rule explanation or translation in FRENCH (2-3 sentences max).",
-  "tip": "Short memorable tip for French speakers.",
-  "american_variant": "American nuance note (e.g., Flap T, gonna, wanna, sidewalk)."
-}
-''';
-
-    // Construire des échanges alternés valides pour l'API Gemini
-    final contents = <Map<String, dynamic>>[];
-
-    if (conversationHistory != null && conversationHistory.isNotEmpty) {
-      // Optimisation stricte des tokens Gemini AI :
-      // Fenêtre glissante conservant uniquement les 4 derniers échanges (2 tours)
-      final effectiveHistory = conversationHistory.length > 4
-          ? conversationHistory.sublist(conversationHistory.length - 4)
-          : conversationHistory;
-
-      // Filtrer et alterner rigoureusement user / model
-      String? lastRole;
-      for (final msg in effectiveHistory) {
-        final role = msg['role'] == 'user' ? 'user' : 'model';
-        final text = (msg['text'] ?? '').trim();
-        if (text.isEmpty) continue;
-
-        // L'API Gemini exige que le premier tour soit 'user'
-        if (contents.isEmpty && role != 'user') {
-          continue;
-        }
-
-        if (role == lastRole) {
-          // Fusionner si deux rôles consécutifs identiques
-          final lastContent = contents.last;
-          final parts = lastContent['parts'] as List;
-          parts.add({'text': text});
-        } else {
-          contents.add({
-            'role': role,
-            'parts': [
-              {'text': text}
-            ],
-          });
-          lastRole = role;
-        }
-      }
-    }
-
-    // Ajouter le message actuel de l'utilisateur
-    if (contents.isNotEmpty && contents.last['role'] == 'user') {
-      final lastParts = contents.last['parts'] as List;
-      lastParts.add({'text': cleanInput});
-    } else {
-      contents.add({
-        'role': 'user',
-        'parts': [
-          {'text': cleanInput}
-        ],
-      });
-    }
-
-    final requestBody = {
-      'contents': contents,
-      'systemInstruction': {
-        'parts': [
-          {'text': systemInstruction}
-        ]
-      },
-      'generationConfig': {
-        'temperature': 0.7,
-        'responseMimeType': 'application/json',
-        'maxOutputTokens': 350, // Économise le quota de tokens de sortie
-      },
-    };
-
-    final modelsToTry = [
-      _defaultModel,
-      'gemini-3.6-flash',
-      'gemini-flash-latest',
-    ];
-
-    for (final model in modelsToTry.toSet()) {
+    final auth = AuthService();
+    final client = auth.client;
+    if (client != null && await auth.ensureSession()) {
       try {
-        final url = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveApiKey',
-        );
+        final history = conversationHistory == null
+            ? <Map<String, String>>[]
+            : (conversationHistory.length > 4
+                ? conversationHistory.sublist(conversationHistory.length - 4)
+                : conversationHistory);
 
-        final response = await http
-            .post(
-              url,
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode(requestBody),
-            )
-            .timeout(const Duration(seconds: 12));
+        final res = await client.functions
+            .invoke('gemini', body: {
+              'mode': 'chat',
+              'message': cleanInput,
+              'level': userLevel,
+              'history': history,
+            })
+            .timeout(const Duration(seconds: 20));
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final candidates = data['candidates'] as List?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final content = candidates[0]['content'];
-            final parts = content['parts'] as List?;
-            if (parts != null && parts.isNotEmpty) {
-              final rawText = parts[0]['text'] as String;
-              final cleanJson = _cleanJsonString(rawText);
-              final jsonMap = jsonDecode(cleanJson) as Map<String, dynamic>;
-
-              return GeminiResponse(
-                replyEn: jsonMap['reply_en'] ?? "Hey there! How's your English practice going today?",
-                feedback: CorrectionFeedback.fromMap(jsonMap),
-              );
-            }
-          }
-        } else {
-          debugPrint("Gemini API ($model) status: ${response.statusCode} - ${response.body}");
+        final data = res.data;
+        if (res.status == 200 && data is Map) {
+          final jsonMap = Map<String, dynamic>.from(data);
+          return GeminiResponse(
+            replyEn: jsonMap['reply_en'] ?? "Hey there! How's your English practice going today?",
+            feedback: CorrectionFeedback.fromMap(jsonMap),
+          );
         }
+        debugPrint("Gemini function status: ${res.status}");
+      } on FunctionException catch (e) {
+        if (e.status == 429) return dailyLimitResponse();
+        debugPrint("Gemini function error: ${e.status} ${e.details}");
       } catch (e) {
-        debugPrint("Gemini request exception for $model: $e");
+        debugPrint("Gemini function exception: $e");
       }
     }
 
-    // Moteur dynamique hors-ligne si le réseau ou l'API n'a pas répondu
+    // Moteur dynamique hors-ligne si le réseau ou le serveur n'a pas répondu
     return generateOfflineSmartResponse(cleanInput, userLevel);
   }
 
-  static String _cleanJsonString(String raw) {
-    var s = raw.trim();
-    if (s.startsWith('```json')) {
-      s = s.substring(7);
-    } else if (s.startsWith('```')) {
-      s = s.substring(3);
-    }
-    if (s.endsWith('```')) {
-      s = s.substring(0, s.length - 3);
-    }
-    return s.trim();
+  /// Réponse affichée quand la limite quotidienne fixée par le serveur est atteinte.
+  static GeminiResponse dailyLimitResponse() {
+    return GeminiResponse(
+      replyEn:
+          "We've reached today's limit for live AI conversations. Come back tomorrow, and keep practicing with your lessons in the meantime!\n\n(Limite quotidienne atteinte pour le tuteur IA. Elle se recharge demain.)",
+      feedback: CorrectionFeedback.clean(),
+    );
   }
 
   /// Moteur conversationnel intelligent hors-ligne riche et diversifié

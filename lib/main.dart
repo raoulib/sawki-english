@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/auth_service.dart';
 import 'core/providers/app_state_provider.dart';
 import 'features/splash/splash_screen.dart';
 
@@ -11,6 +12,10 @@ void main() async {
 
   // Initialisation de la persistance locale ultra-rapide Hive
   await StorageService.init();
+
+  // Connexion Supabase (session anonyme si besoin, sans bloquer hors ligne)
+  await AuthService().init();
+  AuthService().ensureSession();
 
   // Initialisation du service de rappels quotidiens locaux
   await NotificationService.instance.initialize();
