@@ -44,11 +44,26 @@ void main() {
       expect(restored.masterExamScore, 92);
       expect(restored.isCertified, true);
       expect(restored.email, 'moudi@sawkigroup.com');
-      expect(restored.isEmailVerified, true);
+      // Une clé ne peut pas prouver qu'un email a été vérifié
+      expect(restored.isEmailVerified, false);
 
       // Verify invalid key handling
       expect(CloudSyncService.parseRecoveryKey('SAWKI-INVALID-KEY'), isNull);
       expect(CloudSyncService.parseRecoveryKey(''), isNull);
+    });
+
+    test('Recovery key never grants Premium or extra AI credits', () {
+      final forged = UserProfile(
+        name: 'Faussaire',
+        isPremium: true,
+        energyCredits: 999,
+      );
+      final key = CloudSyncService.generateRecoveryKey(forged);
+      final restored = CloudSyncService.parseRecoveryKey(key);
+      expect(restored, isNotNull);
+      expect(restored!.isPremium, false);
+      expect(restored.energyCredits,
+          lessThanOrEqualTo(MonetizationConfig.dailyFreeEnergyBase));
     });
 
     test('CloudSyncService Supabase row parsing roundtrip', () {
@@ -228,11 +243,11 @@ void main() {
       expect(tts.isMainlyFrench("I only stayed there for one night."), false);
     });
 
-    test('Sawki Group copyright and branding metadata', () {
-      expect(AppConfig.organization, 'Sawki Group');
-      expect(AppConfig.copyright.contains('Sawki Group'), true);
+    test('Sawki Technologie 2IM copyright and branding metadata', () {
+      expect(AppConfig.organization, 'Sawki Technologie 2IM');
+      expect(AppConfig.copyright.contains('Sawki Technologie 2IM'), true);
       expect(AppConfig.copyright.contains('2026'), true);
-      expect(AppConfig.poweredBy.contains('Sawki Group'), true);
+      expect(AppConfig.poweredBy.contains('Sawki Technologie 2IM'), true);
     });
 
     test('Google AI TTS 44-byte WAV header generator from 24kHz PCM', () {

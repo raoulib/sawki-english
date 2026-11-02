@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>L'application d'apprentissage d'anglais américain accéléré avec Tuteur IA et reconnaissance vocale.</strong><br>
-  <em>Éditée par <strong>Sawki Group</strong> (Ibrahim Moudy Ibrahima)</em>
+  <em>Éditée par <strong>Sawki Technologie 2IM</strong> (Ibrahim Moudy Ibrahima)</em>
 </p>
 
 <p align="center">
@@ -79,7 +79,7 @@ flutter build appbundle --release \
 
 ## 🏢 Éditeur
 
-**Sawki Group**  
+**Sawki Technologie 2IM**  
 Fondateur : Ibrahim Moudy Ibrahima  
-Contact : `contact@sawkigroup.com`  
-Copyright © 2026 Sawki Group. Tous droits réservés.
+Contact : `sawkienglish@gmail.com`  
+Copyright © 2026 Sawki Technologie 2IM. Tous droits réservés.

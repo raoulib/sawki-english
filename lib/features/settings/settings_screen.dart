@@ -6,6 +6,7 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/services/tts_service.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/ad_service.dart';
 import '../../core/config/app_config.dart';
 import '../premium/premium_screen.dart';
 import '../history/history_screen.dart';
@@ -141,7 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Sawki English (édité par Sawki Group) protège rigoureusement vos données personnelles conformément aux exigences Google Play et au RGPD.',
+                  'Résumé de la politique de confidentialité de Sawki English (Sawki Technologie 2IM). Version complète : ${AppConfig.privacyPolicyUrl}',
                   style: TextStyle(fontSize: 13, height: 1.4),
                 ),
                 SizedBox(height: 12),
@@ -151,17 +152,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '• Nom ou pseudo d\'apprentissage\n• Progression pédagogique (niveaux, XP, erreurs)\n• Email (optionnel, pour sauvegarde cloud)',
+                  '• Nom ou pseudo d\'apprentissage\n• Progression pédagogique (niveaux, XP, erreurs)\n• Email (optionnel, pour la sauvegarde cloud sur Supabase)\n• Messages écrits ou dictés au tuteur IA',
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
                 SizedBox(height: 10),
                 Text(
-                  '2. Utilisation du Microphone',
+                  '2. Microphone et tuteur IA',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '• Utilisé exclusivement pour l\'évaluation de prononciation et le tuteur IA Sarah.\n• Traité en temps réel : aucun enregistrement audio n\'est conservé ou transmis à des tiers.',
+                  '• Le micro sert à la prononciation et au tuteur IA Sarah. Aucun fichier audio n\'est enregistré par Sawki English.\n• La reconnaissance vocale est assurée par le service de votre téléphone (souvent Google), qui peut traiter l\'audio sur ses serveurs.\n• Le texte de vos messages est envoyé à Google (Gemini) pour générer les réponses et corrections.',
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
                 SizedBox(height: 10),
@@ -171,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '• Google AdMob affiche des bannières et vidéos récompensées selon la politique Google.\n• Identifiant publicitaire réinitialisable dans les paramètres Android.',
+                  '• Google AdMob affiche des vidéos récompensées et utilise l\'identifiant publicitaire de l\'appareil, avec votre consentement lorsque la loi l\'exige.\n• Identifiant publicitaire réinitialisable dans les paramètres Android.',
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
                 SizedBox(height: 10),
@@ -191,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Droit d\'accès, de rectification et d\'effacement garanti. Contact officiel : contact@sawkigroup.com',
+                  'Droits d\'accès, de rectification et d\'effacement : écrivez à sawkienglish@gmail.com. La déconnexion efface les données de ce téléphone uniquement.',
                   style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                 ),
               ],
@@ -1352,6 +1353,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
+                ),
+                FutureBuilder<bool>(
+                  future: AdService().isPrivacyOptionsRequired(),
+                  builder: (context, snapshot) {
+                    if (snapshot.data != true) return const SizedBox.shrink();
+                    return InkWell(
+                      onTap: () => AdService().showPrivacyOptionsForm(),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.ads_click, size: 16, color: AppColors.subtext(context)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Choix de confidentialité publicitaire',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.text(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

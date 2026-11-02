@@ -52,11 +52,10 @@ android {
 
     buildTypes {
         release {
-            // Utiliser la clé release si disponible, sinon debug pour le développement
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            // Jamais de clé debug en release : sans key.properties, la compilation
+            // release s'arrête (voir la vérification plus bas).
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
             }
             // Activer R8 : minification, shrinking et obfuscation du code
             isMinifyEnabled = true
@@ -74,6 +73,20 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// Bloque toute compilation release (APK ou AAB) sans clé de signature de production.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any { task ->
+        task.project == project &&
+            (task.name == "assembleRelease" || task.name == "bundleRelease")
+    }
+    if (buildsRelease && !keystorePropertiesFile.exists()) {
+        throw GradleException(
+            "android/key.properties introuvable : impossible de signer la version release. " +
+                "Copiez android/key.properties.template, renseignez votre keystore, puis relancez."
+        )
+    }
 }
 
 dependencies {

@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>sawki_english</string>
+	<string>Sawki English</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Sawki English utilise le micro pour évaluer votre prononciation et converser avec le tuteur. L'audio n'est pas enregistré.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Sawki English transforme votre voix en texte pour corriger votre prononciation et répondre à vos phrases.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -44,8 +44,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
       _credentialId = storedId ?? '';
     }
 
-    // Conformément aux normes internationales d'intégrité académique,
-    // inviter l'apprenant à renseigner et sceller définitivement son Nom Légal Officiel
+    // Inviter l'apprenant à indiquer le nom qui figurera sur son attestation
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isSealed) {
         _promptForSealing(isInitial: true);
@@ -102,7 +101,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Pour être accréditée et reconnue à l\'international (CV, LinkedIn, employeurs, universités), votre certification doit comporter votre Nom Légal Complet (Nom et Prénom d\'état civil).',
+                'Indiquez votre nom complet tel que vous souhaitez le voir sur votre attestation de réussite Sawki English.',
                 style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 14),
@@ -145,7 +144,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                     Text('⚠️ ', style: TextStyle(fontSize: 16)),
                     Expanded(
                       child: Text(
-                        'Norme internationale anti-fraude :\nUne fois validé, ce diplôme sera définitivement scellé avec un identifiant unique (Credential ID). Ce nom ne pourra plus jamais être modifié sur cet appareil. Vérifiez l\'orthographe exacte selon votre passeport ou carte d\'identité.',
+                        'Une fois validé, ce nom est enregistré avec un identifiant d\'attestation et ne pourra plus être modifié sur cet appareil. Vérifiez l\'orthographe.',
                         style: TextStyle(
                           color: Color(0xFFFDE68A),
                           fontSize: 11.5,
@@ -228,7 +227,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Impossible de générer l\'image du diplôme.'),
+              content: Text('Impossible de générer l\'image de l\'attestation.'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -300,8 +299,8 @@ class _CertificateScreenState extends State<CertificateScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path, mimeType: 'image/png', name: fileName)],
-          text: '🎓 Official Certificate of Bilingual Proficiency & Fluency awarded to $_fullName (Credential ID: $_credentialId) with a final score of ${widget.profile.masterExamScore ?? 100}%! Issued by Sawki English Academy.',
-          subject: 'Official Sawki English Certificate - $_fullName',
+          text: '🎓 $_fullName a terminé le parcours Sawki English (A0 à C1) avec un score de ${widget.profile.masterExamScore ?? 0}% au grand examen final. Attestation n° $_credentialId, délivrée par l\'application Sawki English (Sawki Technologie 2IM).',
+          subject: 'Attestation de réussite Sawki English - $_fullName',
         ),
       );
     } catch (e) {
@@ -332,7 +331,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Diplôme Enregistré !',
+                'Attestation enregistrée !',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
@@ -343,7 +342,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Votre diplôme officiel scellé au nom de "$_fullName" a été généré avec succès en haute définition (qualité HD imprimable).',
+              'Votre attestation au nom de "$_fullName" a été générée en haute définition.',
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -397,14 +396,14 @@ class _CertificateScreenState extends State<CertificateScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text('Official Certificate of Fluency', style: TextStyle(color: Colors.white, fontSize: 16)),
+        title: const Text('Certificate of Completion', style: TextStyle(color: Colors.white, fontSize: 16)),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.share, color: Colors.white),
-            tooltip: 'Partager le diplôme',
+            tooltip: 'Partager l\'attestation',
             onPressed: _isExporting ? null : _shareDiploma,
           ),
         ],
@@ -454,7 +453,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                                   ),
                                 ),
                                 const Text(
-                                  'OFFICIAL CERTIFICATE OF FLUENCY',
+                                  'CERTIFICATE OF COMPLETION',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     letterSpacing: 1.5,
@@ -472,7 +471,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       const SizedBox(height: 22),
 
                       const Text(
-                        'CERTIFICATE OF EXCELLENCE &\nBILINGUAL PROFICIENCY',
+                        'SAWKI ENGLISH\nA0 – C1 LEARNING PATH',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 18,
@@ -484,7 +483,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'This official certificate is proudly awarded to',
+                        'This certificate of completion is awarded to',
                         style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 12),
@@ -504,7 +503,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                       const SizedBox(height: 14),
 
                       const Text(
-                        'for successfully completing all 6 levels of the comprehensive Sawki English Curriculum (Foundations A0 through Advanced Mastery C1), demonstrating exceptional proficiency in spoken and written American English, spontaneous conversational fluency, and international professional communication skills.',
+                        'for completing the 6 levels of the Sawki English curriculum (A0 to C1) and passing the in-app final exam. This certificate is issued by the Sawki English app and is not an accredited language qualification.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, height: 1.45, color: AppColors.textPrimary),
                       ),
@@ -540,7 +539,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                                     fit: BoxFit.scaleDown,
                                     alignment: Alignment.centerLeft,
                                     child: const Text(
-                                      'Proficiency Level: C1 - Bilingual Mastery (Score ≥ 80%)',
+                                      'Sawki English level reached: C1 (final exam score ≥ 80%)',
                                       maxLines: 1,
                                       style: TextStyle(
                                         fontSize: 11,
@@ -577,13 +576,13 @@ class _CertificateScreenState extends State<CertificateScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('Certified & Validated by:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                const Text('Issued by:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                                 const SizedBox(height: 2),
                                 FittedBox(
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerRight,
                                   child: Text(
-                                    'Sarah 🇺🇸 (Lead American Coach)',
+                                    'Sawki English · Sawki Technologie 2IM',
                                     textAlign: TextAlign.end,
                                     maxLines: 1,
                                     style: TextStyle(
@@ -624,7 +623,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                                 Icon(Icons.lock_outline, size: 12, color: Color(0xFFD4AF37)),
                                 SizedBox(width: 4),
                                 Text(
-                                  'Officially Sealed & Tamper-Proof',
+                                  'Certificate ID',
                                   style: TextStyle(
                                     fontSize: 9.5,
                                     color: Color(0xFF64748B),
@@ -661,7 +660,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Certificat Officiel Scellé : $_fullName',
+                              'Attestation enregistrée : $_fullName',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -700,7 +699,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Diplôme en attente de scellement.\nCliquez ici pour renseigner et sceller votre Nom Légal.',
+                            'Attestation en attente.\nTouchez ici pour indiquer votre nom complet.',
                             style: TextStyle(
                               color: Colors.amber,
                               fontSize: 12,
@@ -716,7 +715,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
               ],
               const SizedBox(height: 14),
 
-              // Bouton Télécharger mon Diplôme
+              // Bouton Télécharger mon attestation
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -730,7 +729,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                         )
                       : const Icon(Icons.file_download_outlined, color: Colors.black, size: 22),
                   label: Text(
-                    _isExporting ? 'Generating Certificate...' : 'Télécharger mon Diplôme (Image HD) 📥',
+                    _isExporting ? 'Generating Certificate...' : 'Télécharger mon attestation (image HD) 📥',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -755,7 +754,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                   onPressed: _isExporting ? null : _shareDiploma,
                   icon: const Icon(Icons.share, color: Colors.white, size: 18),
                   label: const Text(
-                    'Partager mon Diplôme (LinkedIn, WhatsApp...) 📤',
+                    'Partager mon attestation (LinkedIn, WhatsApp...) 📤',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   style: OutlinedButton.styleFrom(

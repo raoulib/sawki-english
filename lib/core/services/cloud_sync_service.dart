@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_profile.dart';
 import '../config/app_config.dart';
+import '../config/monetization_config.dart';
 import 'storage_service.dart';
 
 /// Service de sauvegarde et synchronisation de la progression de l'apprenant.
@@ -260,13 +261,27 @@ class CloudSyncService {
 
       if (data is Map) {
         final profileMap = Map<String, dynamic>.from(data);
-        return UserProfile.fromMap(profileMap);
+        return _sanitizeRestoredProfile(UserProfile.fromMap(profileMap));
       }
     } catch (e) {
       debugPrint("Error parsing recovery key v2, trying legacy format: $e");
       return _tryParseLegacyKey(rawInput);
     }
     return null;
+  }
+
+  /// Une clé de récupération est générée et lue sur le téléphone : son contenu
+  /// peut donc être fabriqué à la main. On n'accorde jamais depuis une clé ce qui
+  /// doit être vérifié ailleurs (abonnement, email vérifié, crédits IA).
+  static UserProfile _sanitizeRestoredProfile(UserProfile p) {
+    final credits = p.energyCredits > MonetizationConfig.dailyFreeEnergyBase
+        ? MonetizationConfig.dailyFreeEnergyBase
+        : p.energyCredits;
+    return p.copyWith(
+      isPremium: false,
+      isEmailVerified: false,
+      energyCredits: credits,
+    );
   }
 
   /// Compatibilité avec les anciennes clés v1 (plain base64)
@@ -293,7 +308,8 @@ class CloudSyncService {
       final data = jsonDecode(jsonStr);
 
       if (data is Map) {
-        return UserProfile.fromMap(Map<String, dynamic>.from(data));
+        return _sanitizeRestoredProfile(
+            UserProfile.fromMap(Map<String, dynamic>.from(data)));
       }
     } catch (e) {
       debugPrint("Legacy recovery key also failed: $e");

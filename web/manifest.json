@@ -1,11 +1,11 @@
 {
-    "name": "sawki_english",
-    "short_name": "sawki_english",
+    "name": "Sawki English",
+    "short_name": "Sawki English",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Apprenez l'anglais américain de A0 à C1 avec un tuteur IA.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
